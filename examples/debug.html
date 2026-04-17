@@ -13,100 +13,126 @@
 <body>
 <canvas id="c"></canvas>
 <script>
-var c = document.getElementById('c');
-var x = c.getContext('2d');
-var W, H;
-var pressed = {};
+(function() {
+    var c = document.getElementById('c');
+    var x = c.getContext ? c.getContext('2d') : null;
+    var W = 320, H = 240;
+    var pressed = {};
+    var allKeys = [];
+    var logLines = [];
 
-function resize() {
-    W = c.width = Math.floor(window.innerWidth);
-    H = c.height = Math.floor(window.innerHeight);
-}
-resize();
-window.addEventListener('resize', resize);
+    function resize() {
+        if (!c) return;
+        W = c.width = Math.floor(window.innerWidth);
+        H = c.height = Math.floor(window.innerHeight);
+    }
+    resize();
+    window.addEventListener('resize', resize);
 
-function btn(name, down) {
-    if (down && !pressed[name]) console.log(name + ' DOWN');
-    if (!down && pressed[name]) console.log(name + ' UP');
-    pressed[name] = down;
-}
-
-function draw() {
-    x.fillStyle = '#000';
-    x.fillRect(0, 0, W, H);
-    x.fillStyle = '#fff';
-    x.font = Math.floor(W / 12) + 'px monospace';
-    x.textAlign = 'center';
-
-    var keys = Object.keys(pressed).filter(function(k) { return pressed[k]; });
-    if (keys.length === 0) {
-        x.fillText('Waiting...', W / 2, H / 2);
-    } else {
-        x.fillText(keys.join(' + '), W / 2, H / 2);
+    function log(msg) {
+        logLines.push(msg);
+        if (logLines.length > 8) logLines.shift();
+        console.log(msg);
     }
 
-    x.font = Math.floor(W / 20) + 'px monospace';
-    x.fillText('3DS INPUT DEBUG', W / 2, H * 0.2);
-}
-
-setInterval(function() {
-    var gamepads = navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : [];
-    for (var i = 0; i < gamepads.length; i++) {
-        var gp = gamepads[i];
-        if (!gp) continue;
-        btn('A', gp.buttons[0] && gp.buttons[0].pressed);
-        btn('B', gp.buttons[1] && gp.buttons[1].pressed);
-        btn('X', gp.buttons[2] && gp.buttons[2].pressed);
-        btn('Y', gp.buttons[3] && gp.buttons[3].pressed);
-        btn('L', gp.buttons[4] && gp.buttons[4].pressed);
-        btn('R', gp.buttons[5] && gp.buttons[5].pressed);
-        btn('START', gp.buttons[8] && gp.buttons[8].pressed);
-        btn('SELECT', gp.buttons[9] && gp.buttons[9].pressed);
-        btn('UP', gp.buttons[12] && gp.buttons[12].pressed);
-        btn('DOWN', gp.buttons[13] && gp.buttons[13].pressed);
-        btn('LEFT', gp.buttons[14] && gp.buttons[14].pressed);
-        btn('RIGHT', gp.buttons[15] && gp.buttons[15].pressed);
+    function btn(name, down) {
+        if (down && !pressed[name]) log(name + ' DOWN');
+        else if (!down && pressed[name]) log(name + ' UP');
+        pressed[name] = down;
     }
 
-    // Keyboard fallback (desktop)
-    if (!navigator.webkitGetGamepads) {
-        // No-op: keyboard events handled separately
+    // Track ALL keydown/keyup with key and keyCode
+    window.addEventListener('keydown', function(e) {
+        log('keydown: key=' + e.key + ' code=' + e.keyCode + ' char=' + String.fromCharCode(e.keyCode));
+        allKeys.push(e.key);
+        if (allKeys.length > 20) allKeys.shift();
+    });
+
+    window.addEventListener('keyup', function(e) {
+        log('keyup: key=' + e.key);
+    });
+
+    // Try Gamepad API
+    function checkGamepads() {
+        if (!navigator.webkitGetGamepads) return;
+        var gps = navigator.webkitGetGamepads();
+        for (var i = 0; i < gps.length; i++) {
+            var gp = gps[i];
+            if (!gp) continue;
+            log('Gamepad found: ' + gp.id);
+            for (var j = 0; j < gp.buttons.length; j++) {
+                if (gp.buttons[j].pressed) {
+                    log('Gamepad btn ' + j + ' pressed');
+                }
+            }
+        }
     }
 
-    draw();
-}, 1000 / 30);
+    function draw() {
+        if (!x) return;
+        x.fillStyle = '#000';
+        x.fillRect(0, 0, W, H);
 
-window.addEventListener('keydown', function(e) {
-    var map = {
-        'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
-        'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
-        'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
-        'Shift': 'L', 'l': 'L', 'R': 'R',
-        'Enter': 'START', '1': 'SELECT'
-    };
-    if (map[e.key]) { btn(map[e.key], true); e.preventDefault(); }
-});
+        x.fillStyle = '#0f0';
+        x.font = '12px monospace';
+        x.textAlign = 'left';
+        for (var i = 0; i < logLines.length; i++) {
+            x.fillText(logLines[i], 4, 16 + i * 14);
+        }
 
-window.addEventListener('keyup', function(e) {
-    var map = {
-        'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
-        'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
-        'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
-        'Shift': 'L', 'l': 'L', 'R': 'R',
-        'Enter': 'START', '1': 'SELECT'
-    };
-    if (map[e.key]) { btn(map[e.key], false); e.preventDefault(); }
-});
+        x.fillStyle = '#fff';
+        x.font = '14px monospace';
+        x.textAlign = 'center';
 
-// Touch on canvas
-window.addEventListener('touchstart', function(e) {
-    var t = e.touches[0];
-    var name = 'TOUCH';
-    btn(name, true);
-    setTimeout(function() { btn(name, false); }, 100);
-});
+        var keys = Object.keys(pressed).filter(function(k) { return pressed[k]; });
+        if (keys.length === 0) {
+            x.fillText('Waiting...', W / 2, H / 2);
+        } else {
+            x.fillText(keys.join(' + '), W / 2, H / 2);
+        }
 
-draw();
+        x.font = '10px monospace';
+        x.fillText('3DS INPUT DEBUG', W / 2, H * 0.15);
+        x.fillText('keys: ' + allKeys.slice(-10).join(', '), W / 2, H * 0.85);
+    }
+
+    setInterval(function() {
+        checkGamepads();
+
+        var map = {
+            'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
+            'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
+            'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
+            'Enter': 'START',
+            '1': 'SELECT',
+            'L': 'L', 'R': 'R'
+        };
+
+        // Map from accumulated allKeys for keydown
+        var lastKey = allKeys[allKeys.length - 1];
+        if (lastKey && map[lastKey]) {
+            btn(map[lastKey], true);
+        }
+
+        draw();
+    }, 1000 / 30);
+
+    window.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        log('TOUCH at ' + e.touches[0].clientX + ',' + e.touches[0].clientY);
+    });
+
+    // Initial draw
+    if (x) {
+        x.fillStyle = '#000';
+        x.fillRect(0, 0, W, H);
+        x.fillStyle = '#0f0';
+        x.font = '12px monospace';
+        x.fillText('Loading...', W / 2, H / 2);
+    }
+
+    log('Debug started');
+})();
 </script>
 </body>
 </html>
