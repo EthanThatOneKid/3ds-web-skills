@@ -2,89 +2,206 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>3DS Button Demo</title>
   <style>
     * { margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
     canvas { display: block; }
   </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
-  <script>
-    const canvas = document.getElementById('c');
-    const ctx = canvas.getContext('2d');
+<canvas id="c"></canvas>
+<script>
+(function() {
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var pressed = null;
+  var width, height, cx, cy, scale;
 
-    const BUTTONS = [
-      { code: 0x00000001, name: 'D-Pad Up' },
-      { code: 0x00000002, name: 'D-Pad Down' },
-      { code: 0x00000004, name: 'D-Pad Left' },
-      { code: 0x00000008, name: 'D-Pad Right' },
-      { code: 0x00000010, name: 'D-Pad Up' },
-      { code: 0x00000020, name: 'D-Pad Down' },
-      { code: 0x00000040, name: 'D-Pad Left' },
-      { code: 0x00000080, name: 'D-Pad Right' },
-      { code: 0x00000100, name: 'Start' },
-      { code: 0x00000200, name: 'Select' },
-      { code: 0x00000400, name: 'A' },
-      { code: 0x00000800, name: 'B' },
-      { code: 0x00001000, name: 'X' },
-      { code: 0x00002000, name: 'Y' },
-      { code: 0x00004000, name: 'L Trigger' },
-      { code: 0x00008000, name: 'R Trigger' },
-    ];
+  var BUTTONS = [
+    { code: 0x00000001, name: 'D-Pad Up',    key: 'UP'    },
+    { code: 0x00000002, name: 'D-Pad Down',  key: 'DN'    },
+    { code: 0x00000004, name: 'D-Pad Left',  key: 'LF'    },
+    { code: 0x00000008, name: 'D-Pad Right', key: 'RT'    },
+    { code: 0x00000010, name: 'Start',       key: 'STA'   },
+    { code: 0x00000020, name: 'Select',      key: 'SEL'   },
+    { code: 0x00000040, name: 'A',           key: 'A'     },
+    { code: 0x00000080, name: 'B',           key: 'B'     },
+    { code: 0x00000100, name: 'X',          key: 'X'     },
+    { code: 0x00000200, name: 'Y',          key: 'Y'     },
+    { code: 0x00000400, name: 'L',           key: 'L'     },
+    { code: 0x00000800, name: 'R',           key: 'R'     },
+  ];
 
-    let lastButton = null;
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    cx = width / 2;
+    cy = height / 2;
+    scale = Math.min(width / 800, height / 500) * 0.85;
+    draw();
+  }
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      draw();
-    }
+  function drawRoundedRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
 
-    function draw() {
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function drawCircle(x, y, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
 
+  function drawLabel(x, y, text, size, color) {
+    ctx.fillStyle = color || '#fff';
+    ctx.font = 'bold ' + Math.round(size * scale) + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+  }
+
+  function isPressed(btn) {
+    return pressed && pressed.code === btn.code;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+
+    var s = scale;
+    var padX = cx - 300 * s;
+    var padY = cy - 30 * s;
+
+    // --- D-Pad ---
+    var dpX = padX + 80 * s;
+    var dpY = padY + 100 * s;
+    var btnW = 50 * s, btnH = 30 * s;
+    var dpC = isPressed({ code: 0x00000001 }) || isPressed({ code: 0x00000002 }) || isPressed({ code: 0x00000004 }) || isPressed({ code: 0x00000008 }) ? '#ff4444' : '#333';
+
+    drawRoundedRect(dpX - btnW / 2, dpY - btnH * 1.7, btnW, btnH, 4 * s, dpC, '#666');
+    drawLabel(dpX, dpY - btnH * 1.7, 'UP', 12 * s);
+    drawRoundedRect(dpX - btnW / 2, dpY + btnH * 0.7, btnW, btnH, 4 * s, dpC, '#666');
+    drawLabel(dpX, dpY + btnH * 0.7, 'DN', 12 * s);
+    drawRoundedRect(dpX - btnH * 1.7, dpY - btnH / 2, btnH, btnW, 4 * s, dpC, '#666');
+    drawLabel(dpX - btnH * 1.7, dpY, 'LF', 12 * s);
+    drawRoundedRect(dpX + btnH * 0.7, dpY - btnH / 2, btnH, btnW, 4 * s, dpC, '#666');
+    drawLabel(dpX + btnH * 1.7, dpY, 'RT', 12 * s);
+
+    // --- Face Buttons (ABXY) ---
+    var fbX = padX + 220 * s;
+    var fbY = padY + 60 * s;
+    var fbR = 22 * s;
+    var fbC = isPressed({ code: 0x00000040 }) || isPressed({ code: 0x00000080 }) || isPressed({ code: 0x00000100 }) || isPressed({ code: 0x00000200 }) ? '#ff4444' : '#333';
+
+    drawCircle(fbX + 50 * s, fbY - 45 * s, fbR, fbC, '#666');
+    drawLabel(fbX + 50 * s, fbY - 45 * s, 'Y', 14 * s);
+    drawCircle(fbX - 45 * s, fbY, fbR, fbC, '#666');
+    drawLabel(fbX - 45 * s, fbY, 'X', 14 * s);
+    drawCircle(fbX + 45 * s, fbY, fbR, fbC, '#666');
+    drawLabel(fbX + 45 * s, fbY, 'A', 14 * s);
+    drawCircle(fbX, fbY + 50 * s, fbR, fbC, '#666');
+    drawLabel(fbX, fbY + 50 * s, 'B', 14 * s);
+
+    // --- Start / Select ---
+    var ssY = padY + 170 * s;
+    var ssW = 55 * s, ssH = 18 * s;
+    drawRoundedRect(padX + 90 * s, ssY, ssW, ssH, 8 * s, isPressed({ code: 0x00000020 }) ? '#ff4444' : '#333', '#666');
+    drawLabel(padX + 117 * s, ssY + ssH / 2, 'STA', 10 * s);
+    drawRoundedRect(padX + 155 * s, ssY, ssW, ssH, 8 * s, isPressed({ code: 0x00000010 }) ? '#ff4444' : '#333', '#666');
+    drawLabel(padX + 182 * s, ssY + ssH / 2, 'SEL', 10 * s);
+
+    // --- L / R Triggers ---
+    var trW = 90 * s, trH = 28 * s;
+    drawRoundedRect(padX - 10 * s, padY - 45 * s, trW, trH, 6 * s, isPressed({ code: 0x00000400 }) ? '#ff4444' : '#333', '#666');
+    drawLabel(padX + 35 * s, padY - 30 * s, 'L', 14 * s);
+    drawRoundedRect(padX + 120 * s, padY - 45 * s, trW, trH, 6 * s, isPressed({ code: 0x00000800 }) ? '#ff4444' : '#333', '#666');
+    drawLabel(padX + 165 * s, padY - 30 * s, 'R', 14 * s);
+
+    // --- Center Nintendo circle ---
+    drawCircle(cx, cy, 35 * s, '#c00', '#800');
+    drawLabel(cx, cy, 'N', 18 * s, '#fff');
+
+    // --- Pressed button display ---
+    if (pressed) {
+      ctx.fillStyle = '#0f0';
+      ctx.font = 'bold ' + Math.round(24 * s) + 'px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      ctx.fillText(pressed.name + ' (0x' + pressed.code.toString(16).toUpperCase().padStart(8, '0') + ')', cx, cy + 160 * s);
+    } else {
+      ctx.fillStyle = '#666';
+      ctx.font = 'bold ' + Math.round(18 * s) + 'px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Press a button', cx, cy + 160 * s);
+    }
+  }
 
-      if (lastButton) {
-        ctx.fillStyle = '#00ff88';
-        ctx.font = 'bold ' + Math.min(canvas.width / 6, 120) + 'px monospace';
-        ctx.fillText(lastButton.name, canvas.width / 2, canvas.height / 2);
+  function hitTest(x, y) {
+    var s = scale;
+    var padX = cx - 300 * s;
+    var padY = cy - 30 * s;
 
-        ctx.fillStyle = '#666';
-        ctx.font = Math.min(canvas.width / 30, 24) + 'px monospace';
-        ctx.fillText('0x' + lastButton.code.toString(16).toUpperCase(), canvas.width / 2, canvas.height / 2 + 80);
+    var hits = [
+      { btn: BUTTONS[0],  x: padX,          y: padY - 30 * s,       w: 50 * s, h: 30 * s },
+      { btn: BUTTONS[1],  x: padX,          y: padY + 70 * s,       w: 50 * s, h: 30 * s },
+      { btn: BUTTONS[2],  x: padX - 45 * s, y: padY,               w: 30 * s, h: 50 * s },
+      { btn: BUTTONS[3],  x: padX + 25 * s, y: padY,               w: 30 * s, h: 50 * s },
+      { btn: BUTTONS[4],  x: padX + 90 * s, y: padY + 170 * s,     w: 55 * s, h: 18 * s },
+      { btn: BUTTONS[5],  x: padX + 155 * s,y: padY + 170 * s,     w: 55 * s, h: 18 * s },
+      { btn: BUTTONS[6],  x: padX + 175 * s,y: padY + 5 * s,      w: 44 * s, h: 44 * s, circ: true },
+      { btn: BUTTONS[7],  x: padX + 85 * s, y: padY + 95 * s,     w: 44 * s, h: 44 * s, circ: true },
+      { btn: BUTTONS[8],  x: padX + 130 * s,y: padY + 50 * s,     w: 44 * s, h: 44 * s, circ: true },
+      { btn: BUTTONS[9],  x: padX + 175 * s,y: padY + 50 * s,      w: 44 * s, h: 44 * s, circ: true },
+      { btn: BUTTONS[10], x: padX - 10 * s, y: padY - 45 * s,      w: 90 * s, h: 28 * s },
+      { btn: BUTTONS[11], x: padX + 120 * s,y: padY - 45 * s,      w: 90 * s, h: 28 * s },
+    ];
+
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i];
+      if (h.circ) {
+        var dx = x - (h.x + h.w / 2);
+        var dy = y - (h.y + h.h / 2);
+        if (dx * dx + dy * dy < (h.w / 2) * (h.w / 2)) return h.btn;
       } else {
-        ctx.fillStyle = '#555';
-        ctx.font = Math.min(canvas.width / 20, 48) + 'px monospace';
-        ctx.fillText('Press a 3DS button', canvas.width / 2, canvas.height / 2);
+        if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h.btn;
       }
     }
+    return null;
+  }
 
-    window.addEventListener('resize', resize);
-    window.addEventListener('keydown', function(e) {
-      const code = e.charCodeAt(0) || e.keyCode;
-      for (var i = 0; i < BUTTONS.length; i++) {
-        if (BUTTONS[i].code === code) {
-          lastButton = BUTTONS[i];
-          draw();
-          break;
-        }
-      }
-    });
+  function handlePress(x, y) {
+    pressed = hitTest(x, y) || pressed;
+    draw();
+  }
 
-    // Touch support
-    canvas.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      lastButton = BUTTONS[Math.floor(Math.random() * BUTTONS.length)];
-      draw();
-    });
+  function handleRelease() {
+    pressed = null;
+    draw();
+  }
 
-    resize();
-  </script>
+  canvas.addEventListener('mousedown', function(e) {
+    handlePress(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('mouseup', handleRelease);
+  canvas.addEventListener('mouseleave', handleRelease);
+
+  canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    handlePress(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  canvas.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    handleRelease();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
 </body>
 </html>
