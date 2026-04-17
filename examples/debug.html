@@ -1,85 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset=\"UTF-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">
-    <title>3DS Input Debug</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Debug</title>
     <style>
-        body { margin: 0; background: #111; color: #0f0; font: 12px monospace; height: 100vh; overflow: hidden; }
-        canvas { display: block; }
+        * { margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-<canvas id=\"c\"></canvas>
+<canvas id="c"></canvas>
 <script>
-// Real 3DS: use webkitGetGamepads (must poll, no events)
-// Desktop fallback: keyboard events
-var lastPressed = 'None';
-var lastCode = '-';
+var c = document.getElementById('c');
+var x = c.getContext('2d');
+var W, H;
+var pressed = {};
 
-function draw() {
-    var c = document.getElementById('c');
-    var ctx = c.getContext('2d');
-    var W = c.width = Math.min(400, innerWidth);
-    var H = c.height = Math.min(320, innerHeight);
-    
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, W, H);
-    
-    ctx.fillStyle = '#0f0';
-    ctx.font = '14px monospace';
-    ctx.fillText('3DS Input Debug', 10, 20);
-    ctx.fillText('Press buttons to see codes', 10, 38);
-    
-    ctx.fillStyle = '#333';
-    ctx.fillRect(10, 50, W-20, 60);
-    
-    ctx.fillStyle = '#0f0';
-    ctx.font = '20px monospace';
-    ctx.fillText('Pressed: ' + lastPressed, 20, 80);
-    ctx.fillText('Code: ' + lastCode, 20, 100);
-    
-    ctx.font = '10px monospace';
-    ctx.fillStyle = '#666';
-    ctx.fillText('3DS: poll via webkitGetGamepads()', 10, H-20);
-    ctx.fillText('Desktop: click + keyboard', 10, H-8);
+function resize() {
+    W = c.width = Math.floor(window.innerWidth);
+    H = c.height = Math.floor(window.innerHeight);
+}
+resize();
+window.addEventListener('resize', resize);
+
+function btn(name, down) {
+    if (down && !pressed[name]) console.log(name + ' DOWN');
+    if (!down && pressed[name]) console.log(name + ' UP');
+    pressed[name] = down;
 }
 
-draw();
+function draw() {
+    x.fillStyle = '#000';
+    x.fillRect(0, 0, W, H);
+    x.fillStyle = '#fff';
+    x.font = Math.floor(W / 12) + 'px monospace';
+    x.textAlign = 'center';
 
-// Desktop fallback: click to \"press\" buttons
-var buttons = ['Up','Down','Left','Right','A','B','X','Y','L','R','Start','Select'];
-document.addEventListener('click', function(e) {
-    var x = e.clientX / innerWidth * 2 - 1;
-    var y = e.clientY / innerHeight * 2 - 1;
-    if (x < 0 && y < 0) { lastPressed = 'A'; lastCode = '13 (Enter)'; }
-    else if (x > 0 && y < 0) { lastPressed = 'B'; lastCode = '0x00000040'; }
-    else if (x < 0 && y > 0) { lastPressed = 'Y'; lastCode = '0x00000020'; }
-    else { lastPressed = 'X'; lastCode = '0x00000100'; }
-    draw();
-});
-
-document.addEventListener('keydown', function(e) {
-    var map = {38:'Up',40:'Down',37:'Left',39:'Right',13:'A',90:'B',88:'X',89:'Y',81:'L',87:'R'};
-    var codeMap = {38:'0x00000001',40:'0x00000008',37:'0x00000002',39:'0x00000004',13:'0x00000080',90:'0x00000040',88:'0x00000100',89:'0x00000020',81:'0x00000040',87:'0x00000020'};
-    lastPressed = map[e.keyCode] || '?';
-    lastCode = codeMap[e.keyCode] || e.keyCode;
-    draw();
-});
-
-// Poll gamepad for real 3DS (no events, must poll)
-setInterval(function() {
-    var gp = navigator.webkitGetGamepads ? navigator.webkitGetGamepads()[0] : null;
-    if (!gp) return;
-    var names = ['B','A','Y','X','L','R','ZL','ZR','Select','Start','-','-','Up','Down','Left','Right'];
-    for (var i = 0; i < gp.buttons.length; i++) {
-        if (gp.buttons[i].pressed) {
-            lastPressed = names[i] || i;
-            lastCode = 'buttons[' + i + ']';
-            draw();
-        }
+    var keys = Object.keys(pressed).filter(function(k) { return pressed[k]; });
+    if (keys.length === 0) {
+        x.fillText('Waiting...', W / 2, H / 2);
+    } else {
+        x.fillText(keys.join(' + '), W / 2, H / 2);
     }
-}, 1000/30);
+
+    x.font = Math.floor(W / 20) + 'px monospace';
+    x.fillText('3DS INPUT DEBUG', W / 2, H * 0.2);
+}
+
+setInterval(function() {
+    var gamepads = navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : [];
+    for (var i = 0; i < gamepads.length; i++) {
+        var gp = gamepads[i];
+        if (!gp) continue;
+        btn('A', gp.buttons[0] && gp.buttons[0].pressed);
+        btn('B', gp.buttons[1] && gp.buttons[1].pressed);
+        btn('X', gp.buttons[2] && gp.buttons[2].pressed);
+        btn('Y', gp.buttons[3] && gp.buttons[3].pressed);
+        btn('L', gp.buttons[4] && gp.buttons[4].pressed);
+        btn('R', gp.buttons[5] && gp.buttons[5].pressed);
+        btn('START', gp.buttons[8] && gp.buttons[8].pressed);
+        btn('SELECT', gp.buttons[9] && gp.buttons[9].pressed);
+        btn('UP', gp.buttons[12] && gp.buttons[12].pressed);
+        btn('DOWN', gp.buttons[13] && gp.buttons[13].pressed);
+        btn('LEFT', gp.buttons[14] && gp.buttons[14].pressed);
+        btn('RIGHT', gp.buttons[15] && gp.buttons[15].pressed);
+    }
+
+    // Keyboard fallback (desktop)
+    if (!navigator.webkitGetGamepads) {
+        // No-op: keyboard events handled separately
+    }
+
+    draw();
+}, 1000 / 30);
+
+window.addEventListener('keydown', function(e) {
+    var map = {
+        'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
+        'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
+        'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
+        'Shift': 'L', 'l': 'L', 'R': 'R',
+        'Enter': 'START', '1': 'SELECT'
+    };
+    if (map[e.key]) { btn(map[e.key], true); e.preventDefault(); }
+});
+
+window.addEventListener('keyup', function(e) {
+    var map = {
+        'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
+        'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
+        'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
+        'Shift': 'L', 'l': 'L', 'R': 'R',
+        'Enter': 'START', '1': 'SELECT'
+    };
+    if (map[e.key]) { btn(map[e.key], false); e.preventDefault(); }
+});
+
+// Touch on canvas
+window.addEventListener('touchstart', function(e) {
+    var t = e.touches[0];
+    var name = 'TOUCH';
+    btn(name, true);
+    setTimeout(function() { btn(name, false); }, 100);
+});
+
+draw();
 </script>
 </body>
 </html>
