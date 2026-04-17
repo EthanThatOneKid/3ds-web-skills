@@ -26,7 +26,6 @@
     resize();
     window.addEventListener('resize', resize);
 
-    var lastButtons = null;
     var activeBtn = 'none';
     var touchActive = false;
     var touchX = 0, touchY = 0;
@@ -37,7 +36,7 @@
         if (logs.length > 10) logs.pop();
     }
 
-    // Touch
+    // Touch events
     window.addEventListener('touchstart', function(e) {
         e.preventDefault();
         touchActive = true;
@@ -56,7 +55,7 @@
     window.addEventListener('touchend', function(e) {
         e.preventDefault();
         touchActive = false;
-        if (!touchActive) activeBtn = 'none';
+        activeBtn = 'none';
     });
 
     function draw() {
@@ -70,7 +69,7 @@
         x.textAlign = 'center';
         x.fillText('3DS INPUT DEBUG', W / 2, 18);
 
-        // Poll gamepads (3DS browser uses webkit prefix)
+        // Poll gamepads via rAF (3DS browser uses webkit prefix)
         var gp = null;
         try {
             var gpa = navigator.webkitGetGamepads && navigator.webkitGetGamepads();
@@ -96,7 +95,6 @@
                     }
                 }
             }
-            // Also check axes for D-pad
             if (gp.axes && gp.axes.length >= 2) {
                 if (Math.abs(gp.axes[0]) > 0.5 || Math.abs(gp.axes[1]) > 0.5) {
                     activeBtn = 'axes(' + gp.axes[0].toFixed(1) + ',' + gp.axes[1].toFixed(1) + ')';
@@ -114,7 +112,7 @@
             x.fillText('TOUCH ' + Math.round(touchX) + ',' + Math.round(touchY), W / 2, 75);
         }
 
-        // Gamepad status
+        // Status
         x.font = '10px monospace';
         x.fillStyle = '#666';
         x.textAlign = 'left';
@@ -122,21 +120,18 @@
         x.fillText('touch: ' + (touchActive ? 'active' : 'idle'), 4, H - 18);
         x.fillText('webkitGetGamepads: ' + (navigator.webkitGetGamepads ? 'yes' : 'no'), 4, H - 6);
 
-        // Scrollable log
+        // Log
         x.fillStyle = '#0f0';
         x.font = '11px monospace';
         for (var k = 0; k < logs.length; k++) {
             x.fillText(logs[k], 4, 90 + k * 12);
         }
+
+        requestAnimationFrame(draw);
     }
 
-    function loop() {
-        draw();
-        requestAnimationFrame(loop);
-    }
-    loop();
-
-    addLog('ready');
+    addLog('ready - press buttons or touch');
+    requestAnimationFrame(draw);
 })();
 </script>
 </body>
