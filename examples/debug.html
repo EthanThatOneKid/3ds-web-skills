@@ -2,59 +2,64 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3DS Input Debug</title>
     <style>
-        body { margin: 0; background: #000; color: #0f0; font-family: monospace; }
-        #title { padding: 10px; font-size: 20px; border-bottom: 1px solid #030; }
-        #status { padding: 30px; font-size: 36px; text-align: center; }
-        #log { padding: 10px; font-size: 14px; height: 150px; overflow: auto; border-top: 1px solid #030; }
-        #toucharea { padding: 30px; text-align: center; color: #060; border-top: 1px solid #030; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #111; color: #0f0; font-family: monospace; }
+        #title { padding: 12px; font-size: 18px; border-bottom: 1px solid #030; text-align: center; }
+        #cross { display: flex; flex-direction: column; align-items: center; margin: 30px auto; width: 160px; height: 160px; }
+        .arm { position: absolute; background: #0a0; color: #0f0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border: 2px solid #0f0; }
+        .arm.up { top: 0; left: 60px; width: 40px; height: 50px; border-radius: 8px 8px 0 0; }
+        .arm.dn { bottom: 0; left: 60px; width: 40px; height: 50px; border-radius: 0 0 8px 8px; }
+        .arm.lf { left: 0; top: 60px; width: 50px; height: 40px; border-radius: 8px 0 0 8px; }
+        .arm.rt { right: 0; top: 60px; width: 50px; height: 40px; border-radius: 0 8px 8px 0; }
+        .arm.center { position: absolute; top: 55px; left: 55px; width: 50px; height: 50px; background: #0a0; border-radius: 50%; border: 2px solid #0f0; }
+        .arm.active { background: #0f0; color: #000; }
+        #keylog { margin: 20px; padding: 10px; background: #0a0a0a; border: 1px solid #030; height: 120px; overflow: auto; font-size: 14px; }
+        #hint { padding: 10px; text-align: center; color: #060; font-size: 12px; }
     </style>
 </head>
 <body>
     <div id="title">3DS INPUT DEBUG</div>
-    <div id="status">PRESS BUTTON<br>or TOUCH</div>
-    <div id="log"></div>
-    <div id="toucharea">TOUCH AREA</div>
+
+    <div id="cross">
+        <div class="arm up" id="up">UP<br><small>38</small></div>
+        <div class="arm dn" id="dn">DN<br><small>40</small></div>
+        <div class="arm lf" id="lf">LF<br><small>37</small></div>
+        <div class="arm rt" id="rt">RT<br><small>39</small></div>
+        <div class="arm center"></div>
+    </div>
+
+    <div id="keylog"></div>
+    <div id="hint">D-PAD: Up(38) Down(40) Left(37) Right(39)</div>
 
 <script>
 (function() {
-    var status = document.getElementById('status');
-    var log = document.getElementById('log');
-    var toucharea = document.getElementById('toucharea');
+    var log = document.getElementById('keylog');
+    var arms = { Up: 'up', Down: 'dn', Left: 'lf', Right: 'rt' };
+    var active = {};
 
-    function update(msg) {
-        status.innerHTML = msg;
+    function addLog(msg) {
         log.innerHTML = (new Date().toISOString().substr(11,12)) + ' ' + msg + '<br>' + log.innerHTML;
     }
 
     window.addEventListener('keydown', function(e) {
-        update('KEY: ' + e.key + ' code=' + e.keyCode);
+        if (arms[e.key]) {
+            active[arms[e.key]] = true;
+            document.getElementById(arms[e.key]).classList.add('active');
+        }
+        addLog('KEY ' + e.keyCode + ' (' + e.key + ')');
     });
 
     window.addEventListener('keyup', function(e) {
-        update('UP: ' + e.key);
-    });
-
-    window.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        var t = e.touches[0];
-        update('TOUCH ' + Math.round(t.clientX) + ',' + Math.round(t.clientY));
-        toucharea.textContent = 'TOUCHING ' + Math.round(t.clientX) + ',' + Math.round(t.clientY);
-    });
-
-    window.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        if (e.touches.length > 0) {
-            toucharea.textContent = 'DRAG ' + Math.round(e.touches[0].clientX) + ',' + Math.round(e.touches[0].clientY);
+        if (arms[e.key]) {
+            active[arms[e.key]] = false;
+            document.getElementById(arms[e.key]).classList.remove('active');
         }
     });
 
-    window.addEventListener('touchend', function(e) {
-        toucharea.textContent = 'TOUCH AREA';
-    });
-
-    update('READY');
+    addLog('READY');
 })();
 </script>
 </body>
