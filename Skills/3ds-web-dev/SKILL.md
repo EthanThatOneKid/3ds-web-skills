@@ -24,22 +24,22 @@ Always design for the Old 3DS as baseline — it has ~10x less power than a mode
 - **Engine**: Older WebKit (~iOS 5 era)
 - **JavaScript**: No ES6+, no arrow functions, no Promises, no async/await
 - **CSS**: Limited, no flexbox/grid, basic animations only
+- **Canvas**: 2D support (Partial), No WebGL
 - **Storage**: LocalStorage is volatile (cleared on browser restart)
-- **Media**: Limited codec support for audio/video, no WebGL
 
 ## Development Philosophy
 
-### Server-Side Rendering
-100% of business logic and HTML generation must happen server-side:
-- Use Node.js, PHP, Python, or any server runtime
-- No client-side frameworks
-- Pre-render everything
+### Hybrid Architecture
+Use a balanced approach between client-side interactivity and server-side state:
+- **Interactivity**: Use "Old JS" (ES5) for UI toggles, animations, and immediate feedback.
+- **Persistence**: Use SSR for data that must survive browser restarts (LocalStorage is volatile).
+- **ES5 Only**: No ES6+, no arrow functions, no template literals, no `let`/`const`, no Promises.
 
 ### State Persistence
-Since LocalStorage is unreliable:
-- Use standard `<form>` submissions
-- Server-side sessions/cookies for state
-- Examples: to-do lists, user preferences, shopping carts
+Since LocalStorage is unreliable (cleared on exit):
+- Use standard `<form>` submissions for critical data changes.
+- Use Server-side sessions or a database for long-term state.
+- Use AJAX to enhance the UI without requiring full page reloads for every interaction.
 
 ### Form Handling
 ```html
@@ -49,8 +49,8 @@ Since LocalStorage is unreliable:
 </form>
 ```
 
-### AJAX
-Use sparingly — only for small updates. Prefer full page submissions for everything else.
+### AJAX and Interactivity
+Use JavaScript to make the page feel responsive. For example, toggle a menu or show a loading indicator immediately, even if the final state is saved on the server.
 
 ## Input Handling
 
@@ -76,6 +76,40 @@ document.addEventListener('keydown', function(e) {
 - Avoid multi-touch gestures
 - Large tap targets (minimum 44px)
 
+## Canvas API
+
+The 3DS supports the HTML5 Canvas 2D API, but it is highly constrained by the system's limited RAM (128MB shared).
+
+### Screen Resolutions
+- **Top Screen**: 400x240 pixels.
+- **Bottom Screen**: 320x240 pixels.
+
+### Constraints
+- **RAM**: Large canvas buffers or multiple canvases will quickly trigger "Page too large" errors or crashes. Keep canvases small.
+- **No WebGL**: 3D hardware acceleration is not available in the browser. Use 2D primitives only.
+- **Performance**: Heavy pixel manipulation (`getImageData`) and complex paths are slow. Aim for ~15 FPS.
+
+### Optimization Tips
+1. **Minimize Redraws**: Only redraw parts of the canvas that change using `clearRect()`.
+2. **Simple Shapes**: Use `fillRect()` and `strokeRect()` instead of complex paths where possible.
+3. **Alpha Blending**: Avoid heavy use of transparency/globalAlpha as it taxes the CPU.
+
+**Example: Simple Canvas Animation (ES5)**
+```javascript
+var canvas = document.getElementById('myCanvas');
+var ctx = canvas.getContext('2d');
+var x = 0;
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear
+    ctx.fillStyle = "#FF0000";
+    ctx.fillRect(x, 50, 20, 20); // Draw square
+    x = (x + 2) % canvas.width;
+    setTimeout(draw, 66); // ~15 FPS
+}
+draw();
+```
+
 ## Best Practices
 
 1. **Keep it simple** — Minimal JavaScript, maximum server rendering
@@ -98,7 +132,7 @@ my-3ds-site/
 └── package.json
 ```
 
-## Example: Simple To-Do List
+**Example: Hybrid To-Do List**
 
 **Server (Express):**
 ```javascript
@@ -107,14 +141,16 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 
-let todos = [];
+var todos = []; // Simple in-memory storage
 
-app.get('/', (req, res) => {
-  res.render('index', { todos });
+app.get('/', function(req, res) {
+  res.render('index', { todos: todos });
 });
 
-app.post('/add', (req, res) => {
-  todos.push(req.body.item);
+app.post('/add', function(req, res) {
+  if (req.body.item) {
+    todos.push(req.body.item);
+  }
   res.redirect('/');
 });
 ```
@@ -125,19 +161,39 @@ app.post('/add', (req, res) => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>To-Do List</title>
+  <title>3DS To-Do</title>
+  <style>
+    .loading { display: none; color: gray; }
+  </style>
 </head>
 <body>
   <h1>To-Do</h1>
-  <ul>
-    <% todos.forEach(t => { %>
-      <li><%= t %></li>
-    <% }); %>
+  <ul id="todo-list">
+    <% for(var i=0; i<todos.length; i++) { %>
+      <li><%= todos[i] %></li>
+    <% } %>
   </ul>
-  <form action="/add" method="POST">
-    <input type="text" name="item" placeholder="New item">
+
+  <div id="status" class="loading">Saving...</div>
+
+  <form action="/add" method="POST" onsubmit="showLoading()">
+    <input type="text" name="item" id="item-input">
     <button type="submit">Add</button>
   </form>
+
+  <script>
+    // "Old JS" for immediate feedback
+    function showLoading() {
+      document.getElementById('status').style.display = 'block';
+      // Local check before sending
+      var input = document.getElementById('item-input');
+      if (input.value === '') {
+        alert('Please enter an item');
+        return false;
+      }
+      return true;
+    }
+  </script>
 </body>
 </html>
 ```
