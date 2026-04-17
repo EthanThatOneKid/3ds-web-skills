@@ -1,154 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3DS Input Test</title>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">
+    <title>3DS Input Debug</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
-        canvas { display: block; cursor: crosshair; }
-        #info {
-            position: fixed; bottom: 4px; left: 4px; right: 4px;
-            text-align: center; color: #666; font: 10px/1.4 monospace;
-        }
+        body { margin: 0; background: #111; color: #0f0; font: 12px monospace; height: 100vh; overflow: hidden; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="info">D-Pad + A/B/X/Y + Touch</div>
+<canvas id=\"c\"></canvas>
 <script>
-(function() {
-    var cvs = document.getElementById('c');
-    var ctx = cvs.getContext('2d');
-    var W, H;
+// Real 3DS: use webkitGetGamepads (must poll, no events)
+// Desktop fallback: keyboard events
+var lastPressed = 'None';
+var lastCode = '-';
 
-    // State
-    var touched = false, touchX = 0, touchY = 0;
-    var lastKey = null, lastKeyTime = 0;
-    var pulse = 0;
+function draw() {
+    var c = document.getElementById('c');
+    var ctx = c.getContext('2d');
+    var W = c.width = Math.min(400, innerWidth);
+    var H = c.height = Math.min(320, innerHeight);
+    
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, W, H);
+    
+    ctx.fillStyle = '#0f0';
+    ctx.font = '14px monospace';
+    ctx.fillText('3DS Input Debug', 10, 20);
+    ctx.fillText('Press buttons to see codes', 10, 38);
+    
+    ctx.fillStyle = '#333';
+    ctx.fillRect(10, 50, W-20, 60);
+    
+    ctx.fillStyle = '#0f0';
+    ctx.font = '20px monospace';
+    ctx.fillText('Pressed: ' + lastPressed, 20, 80);
+    ctx.fillText('Code: ' + lastCode, 20, 100);
+    
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#666';
+    ctx.fillText('3DS: poll via webkitGetGamepads()', 10, H-20);
+    ctx.fillText('Desktop: click + keyboard', 10, H-8);
+}
 
-    function resize() {
-        W = cvs.width = innerWidth;
-        H = cvs.height = innerHeight;
+draw();
+
+// Desktop fallback: click to \"press\" buttons
+var buttons = ['Up','Down','Left','Right','A','B','X','Y','L','R','Start','Select'];
+document.addEventListener('click', function(e) {
+    var x = e.clientX / innerWidth * 2 - 1;
+    var y = e.clientY / innerHeight * 2 - 1;
+    if (x < 0 && y < 0) { lastPressed = 'A'; lastCode = '13 (Enter)'; }
+    else if (x > 0 && y < 0) { lastPressed = 'B'; lastCode = '0x00000040'; }
+    else if (x < 0 && y > 0) { lastPressed = 'Y'; lastCode = '0x00000020'; }
+    else { lastPressed = 'X'; lastCode = '0x00000100'; }
+    draw();
+});
+
+document.addEventListener('keydown', function(e) {
+    var map = {38:'Up',40:'Down',37:'Left',39:'Right',13:'A',90:'B',88:'X',89:'Y',81:'L',87:'R'};
+    var codeMap = {38:'0x00000001',40:'0x00000008',37:'0x00000002',39:'0x00000004',13:'0x00000080',90:'0x00000040',88:'0x00000100',89:'0x00000020',81:'0x00000040',87:'0x00000020'};
+    lastPressed = map[e.keyCode] || '?';
+    lastCode = codeMap[e.keyCode] || e.keyCode;
+    draw();
+});
+
+// Poll gamepad for real 3DS (no events, must poll)
+setInterval(function() {
+    var gp = navigator.webkitGetGamepads ? navigator.webkitGetGamepads()[0] : null;
+    if (!gp) return;
+    var names = ['B','A','Y','X','L','R','ZL','ZR','Select','Start','-','-','Up','Down','Left','Right'];
+    for (var i = 0; i < gp.buttons.length; i++) {
+        if (gp.buttons[i].pressed) {
+            lastPressed = names[i] || i;
+            lastCode = 'buttons[' + i + ']';
+            draw();
+        }
     }
-
-    // Touch
-    document.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        var t = e.touches[0];
-        touched = true; touchX = t.clientX; touchY = t.clientY;
-    }, false);
-    document.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        var t = e.touches[0];
-        touchX = t.clientX; touchY = t.clientY;
-    }, false);
-    document.addEventListener('touchend', function(e) {
-        e.preventDefault(); touched = false;
-    }, false);
-
-    // Keyboard (D-Pad maps to Arrow keys on 3DS browser)
-    var KEY_MAP = {
-        'ArrowUp':    ['D-Pad Up',    0x00000001],
-        'ArrowDown':  ['D-Pad Down',  0x00000002],
-        'ArrowLeft':  ['D-Pad Left',  0x00000004],
-        'ArrowRight': ['D-Pad Right', 0x00000008],
-        'z':          ['A',           0x00000080],
-        'Z':          ['A',           0x00000080],
-        'x':          ['B',           0x00000100],
-        'X':          ['B',           0x00000100],
-        's':          ['X',           0x00004000],
-        'S':          ['X',           0x00004000],
-        'a':          ['Y',           0x00002000],
-        'A':          ['Y',           0x00002000],
-        'Shift':      ['L',           0x00000200],
-        'r':          ['R',           0x00000400],
-        'R':          ['R',           0x00000400],
-        'q':          ['Q',           0x00000800],
-        'Q':          ['Q',           0x00000800]
-    };
-    var PRESSED = {};
-
-    document.addEventListener('keydown', function(e) {
-        var k = e.key;
-        if (KEY_MAP[k] && !PRESSED[k]) {
-            PRESSED[k] = true;
-            lastKey = k; lastKeyTime = Date.now();
-            redraw();
-        }
-    }, false);
-    document.addEventListener('keyup', function(e) {
-        var k = e.key;
-        if (KEY_MAP[k]) {
-            PRESSED[k] = false;
-            lastKey = null;
-            redraw();
-        }
-    }, false);
-
-    function hex(n) { return '0x' + n.toString(16).toUpperCase().padStart(8, '0'); }
-
-    function redraw() {
-        // Background
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, W, H);
-
-        // Title
-        ctx.fillStyle = '#eee';
-        ctx.font = 'bold 14px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('3DS INPUT TEST', W/2, 26);
-
-        // Active key
-        if (lastKey && KEY_MAP[lastKey]) {
-            var info = KEY_MAP[lastKey];
-            var big = Math.min(W, H) * 0.18;
-            ctx.fillStyle = '#e00';
-            ctx.font = 'bold ' + big + 'px monospace';
-            ctx.fillText(info[0], W/2, H/2 - 10);
-            ctx.fillStyle = '#999';
-            ctx.font = '11px monospace';
-            ctx.fillText(hex(info[1]), W/2, H/2 + big/2 + 4);
-        } else {
-            ctx.fillStyle = '#555';
-            ctx.font = '12px monospace';
-            ctx.fillText('Press a button', W/2, H/2 - 8);
-            ctx.font = '10px monospace';
-            ctx.fillText('or tap the screen', W/2, H/2 + 10);
-        }
-
-        // Touch crosshair
-        if (touched) {
-            var cs = Math.min(W, H) * 0.06;
-            ctx.strokeStyle = '#0f0';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(touchX - cs, touchY); ctx.lineTo(touchX + cs, touchY);
-            ctx.moveTo(touchX, touchY - cs); ctx.lineTo(touchX, touchY + cs);
-            ctx.stroke();
-            ctx.strokeStyle = '#0f03';
-            ctx.beginPath();
-            ctx.arc(touchX, touchY, cs * 1.4, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // Bottom hint
-        ctx.fillStyle = '#555';
-        ctx.font = '9px monospace';
-        ctx.fillText('Arrows=WASD D-Pad  |  Z=A  X=B  A=Y  S=X  |  Shift=L  R=R', W/2, H - 10);
-    }
-
-    window.addEventListener('resize', resize);
-    resize();
-    redraw();
-
-    // Animate touch crosshair
-    (function loop() {
-        if (touched) redraw();
-        requestAnimationFrame(loop);
-    })();
-})();
+}, 1000/30);
 </script>
 </body>
 </html>
