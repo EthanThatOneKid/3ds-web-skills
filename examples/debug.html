@@ -2,136 +2,59 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3DS Input Debug</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; }
+        body { margin: 0; background: #000; color: #0f0; font-family: monospace; }
+        #title { padding: 10px; font-size: 20px; border-bottom: 1px solid #030; }
+        #status { padding: 30px; font-size: 36px; text-align: center; }
+        #log { padding: 10px; font-size: 14px; height: 150px; overflow: auto; border-top: 1px solid #030; }
+        #toucharea { padding: 30px; text-align: center; color: #060; border-top: 1px solid #030; }
     </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+    <div id="title">3DS INPUT DEBUG</div>
+    <div id="status">PRESS BUTTON<br>or TOUCH</div>
+    <div id="log"></div>
+    <div id="toucharea">TOUCH AREA</div>
+
 <script>
 (function() {
-    var c = document.getElementById('c');
-    var x = c ? c.getContext('2d') : null;
-    var W = 320, H = 240;
+    var status = document.getElementById('status');
+    var log = document.getElementById('log');
+    var toucharea = document.getElementById('toucharea');
 
-    function resize() {
-        if (!c) return;
-        W = c.width = Math.floor(window.innerWidth);
-        H = c.height = Math.floor(window.innerHeight);
-    }
-    resize();
-    window.addEventListener('resize', resize);
-
-    var activeBtn = 'none';
-    var touchActive = false;
-    var touchX = 0, touchY = 0;
-    var logs = [];
-
-    function addLog(msg) {
-        logs.unshift(msg);
-        if (logs.length > 10) logs.pop();
+    function update(msg) {
+        status.innerHTML = msg;
+        log.innerHTML = (new Date().toISOString().substr(11,12)) + ' ' + msg + '<br>' + log.innerHTML;
     }
 
-    // Touch events
+    window.addEventListener('keydown', function(e) {
+        update('KEY: ' + e.key + ' code=' + e.keyCode);
+    });
+
+    window.addEventListener('keyup', function(e) {
+        update('UP: ' + e.key);
+    });
+
     window.addEventListener('touchstart', function(e) {
         e.preventDefault();
-        touchActive = true;
         var t = e.touches[0];
-        touchX = t.clientX;
-        touchY = t.clientY;
-        activeBtn = 'touch';
+        update('TOUCH ' + Math.round(t.clientX) + ',' + Math.round(t.clientY));
+        toucharea.textContent = 'TOUCHING ' + Math.round(t.clientX) + ',' + Math.round(t.clientY);
     });
+
     window.addEventListener('touchmove', function(e) {
         e.preventDefault();
         if (e.touches.length > 0) {
-            touchX = e.touches[0].clientX;
-            touchY = e.touches[0].clientY;
+            toucharea.textContent = 'DRAG ' + Math.round(e.touches[0].clientX) + ',' + Math.round(e.touches[0].clientY);
         }
     });
+
     window.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        touchActive = false;
-        activeBtn = 'none';
+        toucharea.textContent = 'TOUCH AREA';
     });
 
-    function draw() {
-        if (!x) return;
-        x.fillStyle = '#111';
-        x.fillRect(0, 0, W, H);
-
-        // Header
-        x.fillStyle = '#0f0';
-        x.font = 'bold 14px monospace';
-        x.textAlign = 'center';
-        x.fillText('3DS INPUT DEBUG', W / 2, 18);
-
-        // Poll gamepads via rAF (3DS browser uses webkit prefix)
-        var gp = null;
-        try {
-            var gpa = navigator.webkitGetGamepads && navigator.webkitGetGamepads();
-            if (gpa && gpa.length > 0) {
-                for (var i = 0; i < gpa.length; i++) {
-                    if (gpa[i]) { gp = gpa[i]; break; }
-                }
-            }
-        } catch (e) {}
-
-        if (gp) {
-            var btns = gp.buttons;
-            if (btns) {
-                var names = ['A','B','X','Y','SL','ST','HL','HR','U','D','L','R'];
-                activeBtn = 'none';
-                for (var j = 0; j < btns.length; j++) {
-                    var b = btns[j];
-                    var val = typeof b === 'object' ? b.value : b;
-                    var prs = typeof b === 'object' ? b.pressed : (val > 0.5);
-                    if (prs && j < names.length) {
-                        activeBtn = names[j];
-                        break;
-                    }
-                }
-            }
-            if (gp.axes && gp.axes.length >= 2) {
-                if (Math.abs(gp.axes[0]) > 0.5 || Math.abs(gp.axes[1]) > 0.5) {
-                    activeBtn = 'axes(' + gp.axes[0].toFixed(1) + ',' + gp.axes[1].toFixed(1) + ')';
-                }
-            }
-        }
-
-        // Active button
-        x.font = 'bold 20px monospace';
-        x.fillStyle = touchActive ? '#ff0' : '#0f0';
-        x.textAlign = 'center';
-        x.fillText('ACTIVE: ' + activeBtn, W / 2, 50);
-
-        if (touchActive) {
-            x.fillText('TOUCH ' + Math.round(touchX) + ',' + Math.round(touchY), W / 2, 75);
-        }
-
-        // Status
-        x.font = '10px monospace';
-        x.fillStyle = '#666';
-        x.textAlign = 'left';
-        x.fillText('gamepad: ' + (gp ? 'detected' : 'none'), 4, H - 30);
-        x.fillText('touch: ' + (touchActive ? 'active' : 'idle'), 4, H - 18);
-        x.fillText('webkitGetGamepads: ' + (navigator.webkitGetGamepads ? 'yes' : 'no'), 4, H - 6);
-
-        // Log
-        x.fillStyle = '#0f0';
-        x.font = '11px monospace';
-        for (var k = 0; k < logs.length; k++) {
-            x.fillText(logs[k], 4, 90 + k * 12);
-        }
-
-        requestAnimationFrame(draw);
-    }
-
-    addLog('ready - press buttons or touch');
-    requestAnimationFrame(draw);
+    update('READY');
 })();
 </script>
 </body>
