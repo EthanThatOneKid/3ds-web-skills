@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3DS Touch Debug</title>
+    <title>3DS Input Debug</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
@@ -17,8 +17,6 @@
     var c = document.getElementById('c');
     var x = c ? c.getContext('2d') : null;
     var W = 320, H = 240;
-    var touches = [];
-    var lastTap = null;
 
     function resize() {
         if (!c) return;
@@ -28,38 +26,37 @@
     resize();
     window.addEventListener('resize', resize);
 
-    function dist(ax, ay, bx, by) {
-        return Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+    var lastButtons = null;
+    var activeBtn = 'none';
+    var touchActive = false;
+    var touchX = 0, touchY = 0;
+    var logs = [];
+
+    function addLog(msg) {
+        logs.unshift(msg);
+        if (logs.length > 10) logs.pop();
     }
 
-    // Show last 12 events
-    var events = [];
-    function addEvent(msg) {
-        events.push(msg);
-        if (events.length > 12) events.shift();
-    }
-
+    // Touch
     window.addEventListener('touchstart', function(e) {
         e.preventDefault();
+        touchActive = true;
         var t = e.touches[0];
-        lastTap = { x: t.clientX, y: t.clientY, r: 0, t: Date.now() };
-        addEvent('DOWN ' + Math.round(t.clientX) + ',' + Math.round(t.clientY));
+        touchX = t.clientX;
+        touchY = t.clientY;
+        activeBtn = 'touch';
     });
-
     window.addEventListener('touchmove', function(e) {
         e.preventDefault();
-        if (e.touches.length > 0 && lastTap) {
-            var t = e.touches[0];
-            var d = dist(lastTap.x, lastTap.y, t.clientX, t.clientY);
-            lastTap.x = t.clientX;
-            lastTap.y = t.clientY;
-            addEvent('MOVE d=' + Math.round(d));
+        if (e.touches.length > 0) {
+            touchX = e.touches[0].clientX;
+            touchY = e.touches[0].clientY;
         }
     });
-
     window.addEventListener('touchend', function(e) {
         e.preventDefault();
-        addEvent('UP');
+        touchActive = false;
+        if (!touchActive) activeBtn = 'none';
     });
 
     function draw() {
@@ -71,40 +68,66 @@
         x.fillStyle = '#0f0';
         x.font = 'bold 14px monospace';
         x.textAlign = 'center';
-        x.fillText('3DS TOUCH DEBUG', W / 2, 18);
+        x.fillText('3DS INPUT DEBUG', W / 2, 18);
 
-        // Zone labels
-        x.font = '11px monospace';
-        x.fillStyle = '#444';
-        x.fillText('TOUCH ANYWHERE', W / 2, 40);
-        x.fillText('drag to test motion', W / 2, 55);
+        // Poll gamepads (3DS browser uses webkit prefix)
+        var gp = null;
+        try {
+            var gpa = navigator.webkitGetGamepads && navigator.webkitGetGamepads();
+            if (gpa && gpa.length > 0) {
+                for (var i = 0; i < gpa.length; i++) {
+                    if (gpa[i]) { gp = gpa[i]; break; }
+                }
+            }
+        } catch (e) {}
 
-        // Event log
-        x.font = '11px monospace';
-        x.fillStyle = '#0f0';
-        x.textAlign = 'left';
-        for (var i = 0; i < events.length; i++) {
-            x.fillText(events[i], 4, 75 + i * 13);
+        if (gp) {
+            var btns = gp.buttons;
+            if (btns) {
+                var names = ['A','B','X','Y','SL','ST','HL','HR','U','D','L','R'];
+                activeBtn = 'none';
+                for (var j = 0; j < btns.length; j++) {
+                    var b = btns[j];
+                    var val = typeof b === 'object' ? b.value : b;
+                    var prs = typeof b === 'object' ? b.pressed : (val > 0.5);
+                    if (prs && j < names.length) {
+                        activeBtn = names[j];
+                        break;
+                    }
+                }
+            }
+            // Also check axes for D-pad
+            if (gp.axes && gp.axes.length >= 2) {
+                if (Math.abs(gp.axes[0]) > 0.5 || Math.abs(gp.axes[1]) > 0.5) {
+                    activeBtn = 'axes(' + gp.axes[0].toFixed(1) + ',' + gp.axes[1].toFixed(1) + ')';
+                }
+            }
         }
 
-        // Tap circle
-        if (lastTap) {
-            var age = Date.now() - lastTap.t;
-            var alpha = Math.max(0, 1 - age / 800);
-            x.beginPath();
-            x.arc(lastTap.x, lastTap.y, 20, 0, Math.PI * 2);
-            x.strokeStyle = 'rgba(0,255,0,' + alpha + ')';
-            x.lineWidth = 2;
-            x.stroke();
-            x.fillStyle = 'rgba(0,255,0,' + (alpha * 0.3) + ')';
-            x.fill();
-        }
-
-        // Touch count
-        x.fillStyle = '#888';
-        x.font = '10px monospace';
+        // Active button
+        x.font = 'bold 20px monospace';
+        x.fillStyle = touchActive ? '#ff0' : '#0f0';
         x.textAlign = 'center';
-        x.fillText('touch works!', W / 2, H - 10);
+        x.fillText('ACTIVE: ' + activeBtn, W / 2, 50);
+
+        if (touchActive) {
+            x.fillText('TOUCH ' + Math.round(touchX) + ',' + Math.round(touchY), W / 2, 75);
+        }
+
+        // Gamepad status
+        x.font = '10px monospace';
+        x.fillStyle = '#666';
+        x.textAlign = 'left';
+        x.fillText('gamepad: ' + (gp ? 'detected' : 'none'), 4, H - 30);
+        x.fillText('touch: ' + (touchActive ? 'active' : 'idle'), 4, H - 18);
+        x.fillText('webkitGetGamepads: ' + (navigator.webkitGetGamepads ? 'yes' : 'no'), 4, H - 6);
+
+        // Scrollable log
+        x.fillStyle = '#0f0';
+        x.font = '11px monospace';
+        for (var k = 0; k < logs.length; k++) {
+            x.fillText(logs[k], 4, 90 + k * 12);
+        }
     }
 
     function loop() {
@@ -113,8 +136,7 @@
     }
     loop();
 
-    addEvent('ready - touch screen');
-    if (x) draw();
+    addLog('ready');
 })();
 </script>
 </body>
