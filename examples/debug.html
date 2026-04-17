@@ -1,136 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Debug</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: monospace; overflow: hidden; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #0f0;
+            font: 12px monospace;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #000;
+        }
     </style>
 </head>
 <body>
-    <canvas id="screen"></canvas>
+    <canvas id="c" width="240" height="320"></canvas>
     <script>
-        const canvas = document.getElementById('screen');
-        const ctx = canvas.getContext('2d');
-
-        // 3DS Screen Resolutions: Top (400x240), Bottom (320x240)
-        canvas.width = 320;
-        canvas.height = 240;
-
-        const BUTTONS = [
-            'B', 'A', 'Y', 'X',
-            'L', 'R', 'ZL', 'ZR',
-            '-', '', '+', '',
-            '', 'Select', 'Start', '',
-            '', '', 'L-Stick', 'R-Stick',
-            '', '', '', ''
+        var ctx = document.getElementById("c").getContext("2d");
+        var gp = navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : [];
+        var BUTTONS = [
+            "A", "B", "X", "Y",
+            "D-Pad Up", "D-Pad Down", "D-Pad Left", "D-Pad Right",
+            "Start", "Select", "L", "R",
+            "L Trig", "R Trig", "ZL", "ZR",
+            "-", "+", "Home"
         ];
+        var pad = gp[0];
 
         function update() {
-            // Polling Gamepad API (WebKit prefix required for 3DS)
-            const pads = navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : [];
-            const gp = pads[0];
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 240, 320);
+            ctx.fillStyle = "#0f0";
+            ctx.fillText("3DS DEBUG", 70, 20);
+            ctx.fillText("Gamepad: " + (pad ? "OK" : "NONE"), 10, 40);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.font = '12px monospace';
+            var y = 60;
+            for (var i = 0; i < BUTTONS.length; i++) {
+                var pressed = pad ? pad.buttons[i] && pad.buttons[i].pressed : false;
+                ctx.fillStyle = pressed ? "#0f0" : "#333";
+                ctx.fillText(BUTTONS[i] + ": " + (pressed ? "ON" : "off"), 10, y);
+                y += 14;
+            }
 
-            // Header
-            ctx.fillStyle = '#00ff00';
-            ctx.fillText('3DS Input Tester', 10, 20);
-
-            if (gp) {
-                // Button Mapping: B=0, A=1, Y=2, X=3, L=4, R=5, DPads=12-15
-                const pressed = [];
-                gp.buttons.forEach((btn, i) => {
-                    if (btn.pressed && BUTTONS[i]) {
-                        pressed.push(BUTTONS[i]);
-                    }
-                });
-
-                if (pressed.length > 0) {
-                    ctx.fillStyle = '#ff4444';
-                    ctx.fillText('PRESSED: ' + pressed.join(' + '), 10, 40);
-                } else {
-                    ctx.fillStyle = '#888888';
-                    ctx.fillText('No buttons pressed', 10, 40);
-                }
-
-                // Circle Pad / C-Stick Axes
-                ctx.fillStyle = '#ffffff';
-                ctx.fillText('Circle Pad:', 10, 70);
-                ctx.fillText('X: ' + gp.axes[0].toFixed(2), 10, 85);
-                ctx.fillText('Y: ' + gp.axes[1].toFixed(2), 10, 100);
-
-                ctx.fillText('C-Stick:', 120, 70);
-                ctx.fillText('X: ' + gp.axes[2].toFixed(2), 120, 85);
-                ctx.fillText('Y: ' + gp.axes[3].toFixed(2), 120, 100);
-
-                // D-Pad (buttons 12-15)
-                ctx.fillText('D-Pad:', 10, 130);
-                ctx.fillText('Up:' + (gp.buttons[12]?.pressed ? ' ON' : ' OFF'), 10, 145);
-                ctx.fillText('Down:' + (gp.buttons[13]?.pressed ? ' ON' : ' OFF'), 10, 160);
-                ctx.fillText('Left:' + (gp.buttons[14]?.pressed ? ' ON' : ' OFF'), 80, 145);
-                ctx.fillText('Right:' + (gp.buttons[15]?.pressed ? ' ON' : ' OFF'), 80, 160);
-
-                // All button states
-                ctx.fillStyle = '#888888';
-                ctx.fillText('All Buttons:', 160, 130);
-                gp.buttons.forEach((btn, i) => {
-                    const y = 145 + (i % 8) * 12;
-                    const x = 160 + Math.floor(i / 8) * 70;
-                    if (BUTTONS[i]) {
-                        ctx.fillStyle = btn.pressed ? '#00ff00' : '#888888';
-                        ctx.fillText(BUTTONS[i] + ':' + (btn.pressed ? '1' : '0'), x, y);
-                    }
-                });
-
-            } else {
-                ctx.fillStyle = '#ff4444';
-                ctx.fillText('Waiting for input...', 10, 40);
-                ctx.fillStyle = '#888888';
-                ctx.fillText('Connect a gamepad or', 10, 60);
-                ctx.fillText('use keyboard as fallback', 10, 75);
+            if (pad) {
+                ctx.fillText("CX:" + pad.axes[0], 130, 60);
+                ctx.fillText("CY:" + pad.axes[1], 130, 74);
+                ctx.fillText("AX:" + pad.axes[2], 130, 88);
+                ctx.fillText("AY:" + pad.axes[3], 130, 102);
             }
 
             requestAnimationFrame(update);
         }
-
-        // Keyboard fallback (click canvas to enable)
-        let keyboardEnabled = false;
-        const keys = {};
-        document.addEventListener('keydown', e => { keys[e.code] = true; });
-        document.addEventListener('keyup', e => { keys[e.code] = false; });
-
-        // Patch navigator.webkitGetGamepads for keyboard testing
-        const origGetGamepads = navigator.webkitGetGamepads;
-        if (!origGetGamepads) {
-            navigator.webkitGetGamepads = () => [{
-                buttons: [
-                    { pressed: !!keys['KeyZ'] },      // B
-                    { pressed: !!keys['KeyX'] },      // A
-                    { pressed: !!keys['KeyA'] },      // Y
-                    { pressed: !!keys['KeyS'] },      // X
-                    { pressed: !!keys['ShiftLeft'] }, // L
-                    { pressed: !!keys['ShiftRight'] }, // R
-                    { pressed: false }, // ZL
-                    { pressed: false }, // ZR
-                    { pressed: !!keys['Digit1'] }, // -
-                    { pressed: false }, //
-                    { pressed: !!keys['Digit2'] }, // +
-                    { pressed: false }, //
-                    { pressed: !!keys['ArrowUp'] },    // D-Up
-                    { pressed: !!keys['ArrowDown'] },  // D-Down
-                    { pressed: !!keys['ArrowLeft'] },  // D-Left
-                    { pressed: !!keys['ArrowRight'] }, // D-Right
-                ],
-                axes: [
-                    (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0),
-                    (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0),
-                    0, 0
-                ]
-            }];
-        }
-
         update();
     </script>
 </body>
