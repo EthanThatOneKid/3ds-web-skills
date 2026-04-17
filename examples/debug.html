@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3DS Debug</title>
+    <title>3DS Touch Debug</title>
     <style>
-        * { margin: 0; padding: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; }
     </style>
@@ -17,10 +17,8 @@
     var c = document.getElementById('c');
     var x = c ? c.getContext('2d') : null;
     var W = 320, H = 240;
-    var lines = [];
-    var keys = {};
     var touches = [];
-    var gamepadInfo = 'no gamepad';
+    var lastTap = null;
 
     function resize() {
         if (!c) return;
@@ -30,51 +28,39 @@
     resize();
     window.addEventListener('resize', resize);
 
-    function addLine(msg) {
-        lines.push(msg);
-        if (lines.length > 12) lines.shift();
+    function dist(ax, ay, bx, by) {
+        return Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
     }
 
-    // Catch ALL keyboard events
-    window.addEventListener('keydown', function(e) {
-        keys[e.key] = true;
-        addLine('DN key=' + e.key + ' code=' + e.keyCode);
-        e.preventDefault();
-    });
-
-    window.addEventListener('keyup', function(e) {
-        keys[e.key] = false;
-        addLine('UP key=' + e.key);
-    });
+    // Show last 12 events
+    var events = [];
+    function addEvent(msg) {
+        events.push(msg);
+        if (events.length > 12) events.shift();
+    }
 
     window.addEventListener('touchstart', function(e) {
         e.preventDefault();
-        for (var i = 0; i < e.touches.length; i++) {
-            touches.push({ x: e.touches[i].clientX, y: e.touches[i].clientY, t: Date.now() });
+        var t = e.touches[0];
+        lastTap = { x: t.clientX, y: t.clientY, r: 0, t: Date.now() };
+        addEvent('DOWN ' + Math.round(t.clientX) + ',' + Math.round(t.clientY));
+    });
+
+    window.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (e.touches.length > 0 && lastTap) {
+            var t = e.touches[0];
+            var d = dist(lastTap.x, lastTap.y, t.clientX, t.clientY);
+            lastTap.x = t.clientX;
+            lastTap.y = t.clientY;
+            addEvent('MOVE d=' + Math.round(d));
         }
-        addLine('TOUCH ' + e.touches[0].clientX + ',' + e.touches[0].clientY);
     });
 
     window.addEventListener('touchend', function(e) {
-        addLine('TOUCH END');
+        e.preventDefault();
+        addEvent('UP');
     });
-
-    // Check gamepads periodically
-    function checkGamepads() {
-        if (!navigator.webkitGetGamepads) return;
-        var gps = navigator.webkitGetGamepads();
-        for (var i = 0; i < gps.length; i++) {
-            var gp = gps[i];
-            if (gp) {
-                gamepadInfo = 'GP' + i + ': ' + gp.id.substring(0, 20);
-                for (var j = 0; j < gp.buttons.length; j++) {
-                    if (gp.buttons[j].pressed) {
-                        addLine('GPbtn[' + j + ']=1');
-                    }
-                }
-            }
-        }
-    }
 
     function draw() {
         if (!x) return;
@@ -83,50 +69,51 @@
 
         // Header
         x.fillStyle = '#0f0';
-        x.font = '14px monospace';
+        x.font = 'bold 14px monospace';
         x.textAlign = 'center';
-        x.fillText('3DS INPUT DEBUG', W / 2, 20);
+        x.fillText('3DS TOUCH DEBUG', W / 2, 18);
+
+        // Zone labels
+        x.font = '11px monospace';
+        x.fillStyle = '#444';
+        x.fillText('TOUCH ANYWHERE', W / 2, 40);
+        x.fillText('drag to test motion', W / 2, 55);
 
         // Event log
         x.font = '11px monospace';
+        x.fillStyle = '#0f0';
         x.textAlign = 'left';
-        for (var i = 0; i < lines.length; i++) {
-            x.fillText(lines[i], 4, 40 + i * 13);
+        for (var i = 0; i < events.length; i++) {
+            x.fillText(events[i], 4, 75 + i * 13);
         }
 
-        // Active keys
-        x.fillStyle = '#fff';
-        x.font = '12px monospace';
-        x.textAlign = 'center';
-        var active = Object.keys(keys).filter(function(k) { return keys[k]; });
-        x.fillText('ACTIVE: ' + (active.length ? active.join(',') : 'none'), W / 2, H * 0.75);
+        // Tap circle
+        if (lastTap) {
+            var age = Date.now() - lastTap.t;
+            var alpha = Math.max(0, 1 - age / 800);
+            x.beginPath();
+            x.arc(lastTap.x, lastTap.y, 20, 0, Math.PI * 2);
+            x.strokeStyle = 'rgba(0,255,0,' + alpha + ')';
+            x.lineWidth = 2;
+            x.stroke();
+            x.fillStyle = 'rgba(0,255,0,' + (alpha * 0.3) + ')';
+            x.fill();
+        }
 
-        // Gamepad status
+        // Touch count
         x.fillStyle = '#888';
         x.font = '10px monospace';
-        x.fillText(gamepadInfo, W / 2, H * 0.88);
-
-        // Instructions
-        x.fillStyle = '#555';
-        x.fillText('press any button or touch screen', W / 2, H - 10);
+        x.textAlign = 'center';
+        x.fillText('touch works!', W / 2, H - 10);
     }
 
-    // Main loop
-    var last = Date.now();
     function loop() {
-        checkGamepads();
         draw();
-        // Dim old touches
-        var now = Date.now();
-        for (var i = touches.length - 1; i >= 0; i--) {
-            if (now - touches[i].t > 2000) touches.splice(i, 1);
-        }
         requestAnimationFrame(loop);
     }
     loop();
 
-    // Initial
-    addLine('ready');
+    addEvent('ready - touch screen');
     if (x) draw();
 })();
 </script>
