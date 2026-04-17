@@ -15,11 +15,12 @@
 <script>
 (function() {
     var c = document.getElementById('c');
-    var x = c.getContext ? c.getContext('2d') : null;
+    var x = c ? c.getContext('2d') : null;
     var W = 320, H = 240;
-    var pressed = {};
-    var allKeys = [];
-    var logLines = [];
+    var lines = [];
+    var keys = {};
+    var touches = [];
+    var gamepadInfo = 'no gamepad';
 
     function resize() {
         if (!c) return;
@@ -29,40 +30,47 @@
     resize();
     window.addEventListener('resize', resize);
 
-    function log(msg) {
-        logLines.push(msg);
-        if (logLines.length > 8) logLines.shift();
-        console.log(msg);
+    function addLine(msg) {
+        lines.push(msg);
+        if (lines.length > 12) lines.shift();
     }
 
-    function btn(name, down) {
-        if (down && !pressed[name]) log(name + ' DOWN');
-        else if (!down && pressed[name]) log(name + ' UP');
-        pressed[name] = down;
-    }
-
-    // Track ALL keydown/keyup with key and keyCode
+    // Catch ALL keyboard events
     window.addEventListener('keydown', function(e) {
-        log('keydown: key=' + e.key + ' code=' + e.keyCode + ' char=' + String.fromCharCode(e.keyCode));
-        allKeys.push(e.key);
-        if (allKeys.length > 20) allKeys.shift();
+        keys[e.key] = true;
+        addLine('DN key=' + e.key + ' code=' + e.keyCode);
+        e.preventDefault();
     });
 
     window.addEventListener('keyup', function(e) {
-        log('keyup: key=' + e.key);
+        keys[e.key] = false;
+        addLine('UP key=' + e.key);
     });
 
-    // Try Gamepad API
+    window.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        for (var i = 0; i < e.touches.length; i++) {
+            touches.push({ x: e.touches[i].clientX, y: e.touches[i].clientY, t: Date.now() });
+        }
+        addLine('TOUCH ' + e.touches[0].clientX + ',' + e.touches[0].clientY);
+    });
+
+    window.addEventListener('touchend', function(e) {
+        addLine('TOUCH END');
+    });
+
+    // Check gamepads periodically
     function checkGamepads() {
         if (!navigator.webkitGetGamepads) return;
         var gps = navigator.webkitGetGamepads();
         for (var i = 0; i < gps.length; i++) {
             var gp = gps[i];
-            if (!gp) continue;
-            log('Gamepad found: ' + gp.id);
-            for (var j = 0; j < gp.buttons.length; j++) {
-                if (gp.buttons[j].pressed) {
-                    log('Gamepad btn ' + j + ' pressed');
+            if (gp) {
+                gamepadInfo = 'GP' + i + ': ' + gp.id.substring(0, 20);
+                for (var j = 0; j < gp.buttons.length; j++) {
+                    if (gp.buttons[j].pressed) {
+                        addLine('GPbtn[' + j + ']=1');
+                    }
                 }
             }
         }
@@ -70,68 +78,56 @@
 
     function draw() {
         if (!x) return;
-        x.fillStyle = '#000';
+        x.fillStyle = '#111';
         x.fillRect(0, 0, W, H);
 
+        // Header
         x.fillStyle = '#0f0';
-        x.font = '12px monospace';
-        x.textAlign = 'left';
-        for (var i = 0; i < logLines.length; i++) {
-            x.fillText(logLines[i], 4, 16 + i * 14);
-        }
-
-        x.fillStyle = '#fff';
         x.font = '14px monospace';
         x.textAlign = 'center';
+        x.fillText('3DS INPUT DEBUG', W / 2, 20);
 
-        var keys = Object.keys(pressed).filter(function(k) { return pressed[k]; });
-        if (keys.length === 0) {
-            x.fillText('Waiting...', W / 2, H / 2);
-        } else {
-            x.fillText(keys.join(' + '), W / 2, H / 2);
+        // Event log
+        x.font = '11px monospace';
+        x.textAlign = 'left';
+        for (var i = 0; i < lines.length; i++) {
+            x.fillText(lines[i], 4, 40 + i * 13);
         }
 
-        x.font = '10px monospace';
-        x.fillText('3DS INPUT DEBUG', W / 2, H * 0.15);
-        x.fillText('keys: ' + allKeys.slice(-10).join(', '), W / 2, H * 0.85);
-    }
-
-    setInterval(function() {
-        checkGamepads();
-
-        var map = {
-            'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
-            'Z': 'B', 'X': 'A', 'A': 'Y', 'S': 'X',
-            'z': 'B', 'x': 'A', 'a': 'Y', 's': 'X',
-            'Enter': 'START',
-            '1': 'SELECT',
-            'L': 'L', 'R': 'R'
-        };
-
-        // Map from accumulated allKeys for keydown
-        var lastKey = allKeys[allKeys.length - 1];
-        if (lastKey && map[lastKey]) {
-            btn(map[lastKey], true);
-        }
-
-        draw();
-    }, 1000 / 30);
-
-    window.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        log('TOUCH at ' + e.touches[0].clientX + ',' + e.touches[0].clientY);
-    });
-
-    // Initial draw
-    if (x) {
-        x.fillStyle = '#000';
-        x.fillRect(0, 0, W, H);
-        x.fillStyle = '#0f0';
+        // Active keys
+        x.fillStyle = '#fff';
         x.font = '12px monospace';
-        x.fillText('Loading...', W / 2, H / 2);
+        x.textAlign = 'center';
+        var active = Object.keys(keys).filter(function(k) { return keys[k]; });
+        x.fillText('ACTIVE: ' + (active.length ? active.join(',') : 'none'), W / 2, H * 0.75);
+
+        // Gamepad status
+        x.fillStyle = '#888';
+        x.font = '10px monospace';
+        x.fillText(gamepadInfo, W / 2, H * 0.88);
+
+        // Instructions
+        x.fillStyle = '#555';
+        x.fillText('press any button or touch screen', W / 2, H - 10);
     }
 
-    log('Debug started');
+    // Main loop
+    var last = Date.now();
+    function loop() {
+        checkGamepads();
+        draw();
+        // Dim old touches
+        var now = Date.now();
+        for (var i = touches.length - 1; i >= 0; i--) {
+            if (now - touches[i].t > 2000) touches.splice(i, 1);
+        }
+        requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Initial
+    addLine('ready');
+    if (x) draw();
 })();
 </script>
 </body>
