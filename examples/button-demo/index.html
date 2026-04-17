@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3DS Button Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 10px; font-size: 28px; }
+    .subtitle { color: #888; margin-bottom: 30px; font-size: 14px; }
+    .controller {
+      background: linear-gradient(180deg, #2d2d2d 0%, #1a1a1a 100%);
+      border-radius: 30px;
+      padding: 40px;
+      display: flex;
+      align-items: center;
+      gap: 80px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.1);
+    }
+    .dpad-section { position: relative; width: 120px; height: 120px; }
+    .dpad {
+      position: absolute;
+      background: #111;
+      border-radius: 8px;
+    }
+    .dpad-h { width: 120px; height: 40px; top: 40px; left: 0; }
+    .dpad-v { width: 40px; height: 120px; top: 0; left: 40px; }
+    .dpad-btn {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.1s;
+      border: none;
+    }
+    .dpad-btn:active, .dpad-btn.active { background: #e74c3c; color: #fff; box-shadow: 0 0 20px #e74c3c; }
+    .dpad-up { top: 0; left: 40px; border-radius: 8px 8px 0 0; }
+    .dpad-down { bottom: 0; left: 40px; border-radius: 0 0 8px 8px; }
+    .dpad-left { left: 0; top: 40px; border-radius: 8px 0 0 8px; }
+    .dpad-right { right: 0; top: 40px; border-radius: 0 8px 8px 0; }
+    .dpad-center { position: absolute; width: 40px; height: 40px; top: 40px; left: 40px; background: #1a1a1a; border-radius: 4px; }
+    .center-section { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .select-start { display: flex; gap: 20px; }
+    .ss-btn {
+      width: 40px;
+      height: 12px;
+      background: #333;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #666;
+      transition: all 0.1s;
+      border: none;
+    }
+    .ss-btn:active, .ss-btn.active { background: #e74c3c; color: #fff; box-shadow: 0 0 15px #e74c3c; }
+    .logo {
+      width: 60px;
+      height: 30px;
+      background: linear-gradient(180deg, #d1242f 0%, #a01d27 100%);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: #fff;
+    }
+    .abxy-section { position: relative; width: 120px; height: 120px; }
+    .abxy-btn {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      background: #8e44ad;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.1s;
+      border: none;
+      box-shadow: 0 4px 0 #6c3483;
+    }
+    .abxy-btn:active, .abxy-btn.active { background: #e74c3c; box-shadow: 0 0 20px #e74c3c; transform: translateY(2px); }
+    .btn-a { right: 0; top: 42px; }
+    .btn-b { bottom: 0; left: 42px; }
+    .btn-x { top: 0; left: 42px; }
+    .btn-y { left: 0; top: 42px; }
+    .triggers {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .trigger {
+      width: 50px;
+      height: 20px;
+      background: #333;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.1s;
+      border: none;
+    }
+    .trigger:active, .trigger.active { background: #e74c3c; color: #fff; box-shadow: 0 0 15px #e74c3c; }
+    .status-box {
+      margin-top: 30px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 15px;
+      padding: 25px 40px;
+      text-align: center;
+    }
+    .status-label { font-size: 14px; color: #888; margin-bottom: 10px; }
+    .status-value { font-size: 32px; font-weight: bold; color: #e74c3c; }
+    .status-hex { font-size: 14px; color: #666; margin-top: 5px; }
+    .reference {
+      margin-top: 30px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      padding: 20px;
+      font-size: 11px;
+      color: #666;
+      max-width: 400px;
+    }
+    .reference h3 { color: #888; margin-bottom: 10px; font-size: 12px; }
+    .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+    .ref-item { display: flex; justify-content: space-between; }
+    .ref-name { color: #aaa; }
+    .ref-code { font-family: monospace; color: #e74c3c; }
+  </style>
+</head>
+<body>
+  <h1>3DS Button Demo</h1>
+  <p class="subtitle">Click the buttons to see their hex codes</p>
+
+  <div class="controller">
+    <div class="dpad-section">
+      <div class="dpad dpad-h"></div>
+      <div class="dpad dpad-v"></div>
+      <div class="dpad-center"></div>
+      <button class="dpad-btn dpad-up" data-code="0x00000001" data-name="D-Pad Up">UP</button>
+      <button class="dpad-btn dpad-down" data-code="0x00000008" data-name="D-Pad Down">DN</button>
+      <button class="dpad-btn dpad-left" data-code="0x00000002" data-name="D-Pad Left">LF</button>
+      <button class="dpad-btn dpad-right" data-code="0x00000004" data-name="D-Pad Right">RT</button>
+    </div>
+
+    <div class="center-section">
+      <div class="select-start">
+        <button class="ss-btn" data-code="0x00000200" data-name="Select">SEL</button>
+        <button class="ss-btn" data-code="0x00000100" data-name="Start">STR</button>
+      </div>
+      <div class="logo">nintendo</div>
+      <div class="triggers">
+        <button class="trigger" data-code="0x00000010" data-name="Right Trigger">R</button>
+        <button class="trigger" data-code="0x00000020" data-name="Left Trigger">L</button>
+      </div>
+    </div>
+
+    <div class="abxy-section">
+      <button class="abxy-btn btn-a" data-code="0x00000080" data-name="A">A</button>
+      <button class="abxy-btn btn-b" data-code="0x00000040" data-name="B">B</button>
+      <button class="abxy-btn btn-x" data-code="0x00000100" data-name="X">X</button>
+      <button class="abxy-btn btn-y" data-code="0x00000200" data-name="Y">Y</button>
+    </div>
+  </div>
+
+  <div class="status-box">
+    <div class="status-label">Pressed Button</div>
+    <div class="status-value" id="status">None</div>
+    <div class="status-hex" id="hex">—</div>
+  </div>
+
+  <div class="reference">
+    <h3>Button Reference (3DS HTTP POST)</h3>
+    <div class="ref-grid">
+      <div class="ref-item"><span class="ref-name">A</span><span class="ref-code">0x00000080</span></div>
+      <div class="ref-item"><span class="ref-name">B</span><span class="ref-code">0x00000040</span></div>
+      <div class="ref-item"><span class="ref-name">Select</span><span class="ref-code">0x00000200</span></div>
+      <div class="ref-item"><span class="ref-name">Start</span><span class="ref-code">0x00000100</span></div>
+      <div class="ref-item"><span class="ref-name">D-Pad Up</span><span class="ref-code">0x00000001</span></div>
+      <div class="ref-item"><span class="ref-name">D-Pad Down</span><span class="ref-code">0x00000008</span></div>
+      <div class="ref-item"><span class="ref-name">D-Pad Left</span><span class="ref-code">0x00000002</span></div>
+      <div class="ref-item"><span class="ref-name">D-Pad Right</span><span class="ref-code">0x00000004</span></div>
+      <div class="ref-item"><span class="ref-name">Right Trigger</span><span class="ref-code">0x00000010</span></div>
+      <div class="ref-item"><span class="ref-name">Left Trigger</span><span class="ref-code">0x00000020</span></div>
+      <div class="ref-item"><span class="ref-name">X</span><span class="ref-code">0x00000100</span></div>
+      <div class="ref-item"><span class="ref-name">Y</span><span class="ref-code">0x00000200</span></div>
+    </div>
+  </div>
+
+  <script>
+    var buttons = document.querySelectorAll('button[data-code]');
+    var status = document.getElementById('status');
+    var hex = document.getElementById('hex');
+
+    function pressBtn(btn) {
+      document.querySelectorAll('button[data-code]').forEach(function(b) {
+        b.classList.remove('active');
+      });
+      btn.classList.add('active');
+      status.textContent = btn.dataset.name;
+      hex.textContent = btn.dataset.code;
+    }
+
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() { pressBtn(btn); });
+    });
+  </script>
+</body>
+</html>
