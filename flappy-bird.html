@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>3DS Flappy Bird</title>
+    <style>
+        /* CSS 2.1 Compatible Styles */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden; /* Prevent scrolling on 3DS */
+            width: 400px;
+            height: 240px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 240px;
+            margin: 0 auto;
+            border: 0;
+            background-color: #70c5ce;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let touch go to container */
+        }
+
+        .text {
+            text-align: center;
+            font-weight: bold;
+            -webkit-text-shadow: 2px 2px #000;
+            text-shadow: 2px 2px #000;
+        }
+
+        #score {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+
+        #message {
+            margin-top: 80px;
+            font-size: 18px;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            font-size: 10px;
+            color: #eee;
+            text-align: center;
+        }
+    </style>
+</head>
+<body id="body">
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="240"></canvas>
+        <div id="ui">
+            <div id="score" class="text">0</div>
+            <div id="message" class="text">PRESS A OR TOUCH TO START</div>
+            <div id="controls-hint" class="text">A / D-PAD UP / TOUCH</div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // ES3 Compatible JavaScript
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var scoreEl = document.getElementById('score');
+        var messageEl = document.getElementById('message');
+
+        // Game State
+        var gameState = 'START'; // START, PLAYING, GAMEOVER
+        var score = 0;
+        var frameCount = 0;
+
+        // Configuration
+        var GRAVITY = 0.25;
+        var JUMP = -4.5;
+        var PIPE_SPEED = 2;
+        var PIPE_SPAWN_RATE = 100; // frames
+        var PIPE_GAP = 85;
+
+        // Bird Object
+        var bird = {
+            x: 50,
+            y: 120,
+            w: 24,
+            h: 18,
+            velocity: 0,
+            rotation: 0
+        };
+
+        // Pipes Array
+        var pipes = [];
+
+        function resetGame() {
+            bird.y = 120;
+            bird.velocity = 0;
+            pipes = [];
+            score = 0;
+            frameCount = 0;
+            scoreEl.innerHTML = '0';
+            messageEl.innerHTML = '';
+        }
+
+        function createPipe() {
+            var minPipeHeight = 20;
+            var maxPipeHeight = 240 - PIPE_GAP - minPipeHeight - 20; // 20 for ground
+            var topPipeHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight + 1)) + minPipeHeight;
+            
+            pipes.push({
+                x: 400,
+                top: topPipeHeight,
+                passed: false
+            });
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            frameCount++;
+
+            // Bird Physics
+            bird.velocity += GRAVITY;
+            bird.y += bird.velocity;
+
+            // Collision: Ground or Ceiling
+            if (bird.y + bird.h > 220 || bird.y < 0) {
+                gameOver();
+            }
+
+            // Pipe Logic
+            if (frameCount % PIPE_SPAWN_RATE === 0) {
+                createPipe();
+            }
+
+            for (var i = 0; i < pipes.length; i++) {
+                var p = pipes[i];
+                p.x -= PIPE_SPEED;
+
+                // Collision: Pipes
+                if (
+                    bird.x + bird.w > p.x && 
+                    bird.x < p.x + 40 &&
+                    (bird.y < p.top || bird.y + bird.h > p.top + PIPE_GAP)
+                ) {
+                    gameOver();
+                }
+
+                // Scoring
+                if (!p.passed && p.x + 40 < bird.x) {
+                    p.passed = true;
+                    score++;
+                    scoreEl.innerHTML = score;
+                }
+            }
+
+            // Clean up off-screen pipes
+            if (pipes.length > 0 && pipes[0].x < -50) {
+                pipes.shift();
+            }
+        }
+
+        function draw() {
+            // Draw Background
+            ctx.fillStyle = '#70c5ce';
+            ctx.fillRect(0, 0, 400, 240);
+
+            // Draw Pipes
+            ctx.fillStyle = '#73bf2e';
+            for (var i = 0; i < pipes.length; i++) {
+                var p = pipes[i];
+                // Top pipe
+                ctx.fillRect(p.x, 0, 40, p.top);
+                // Darker border for top pipe
+                ctx.strokeStyle = '#558022';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(p.x, 0, 40, p.top);
+                
+                // Bottom pipe
+                ctx.fillRect(p.x, p.top + PIPE_GAP, 40, 240 - (p.top + PIPE_GAP));
+                ctx.strokeRect(p.x, p.top + PIPE_GAP, 40, 240 - (p.top + PIPE_GAP));
+            }
+
+            // Draw Ground
+            ctx.fillStyle = '#ded895';
+            ctx.fillRect(0, 220, 400, 20);
+            ctx.fillStyle = '#9cb45c';
+            ctx.fillRect(0, 220, 400, 5);
+
+            // Draw Bird
+            ctx.fillStyle = '#f7d417';
+            ctx.fillRect(bird.x, bird.y, bird.w, bird.h);
+            
+            // Bird details (eye)
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(bird.x + 16, bird.y + 4, 4, 4);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(bird.x + 18, bird.y + 6, 2, 2);
+            
+            // Bird details (beak)
+            ctx.fillStyle = '#f7941d';
+            ctx.fillRect(bird.x + 20, bird.y + 10, 6, 4);
+
+            // Wing
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(bird.x + 2, bird.y + 8, 10, 6);
+            ctx.globalAlpha = 1.0;
+        }
+
+        function jump() {
+            if (gameState === 'START') {
+                gameState = 'PLAYING';
+                resetGame();
+            } else if (gameState === 'PLAYING') {
+                bird.velocity = JUMP;
+            } else if (gameState === 'GAMEOVER') {
+                gameState = 'START';
+                messageEl.innerHTML = 'PRESS A OR TOUCH TO START';
+            }
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            messageEl.innerHTML = 'GAME OVER<br>SCORE: ' + score + '<br>RESTART?';
+        }
+
+        // Input Handlers (ES3 document level)
+        function handleInput(e) {
+            // A Button (13), D-Pad Up (38)
+            var code = e.keyCode;
+            if (code === 13 || code === 38) {
+                if (e.preventDefault) e.preventDefault();
+                jump();
+            }
+        }
+
+        function handleTouch(e) {
+            if (e.preventDefault) e.preventDefault();
+            jump();
+        }
+
+        // Add Listeners
+        document.addEventListener('keydown', handleInput, false);
+        document.addEventListener('touchstart', handleTouch, false);
+        // Also support mouse for easy desktop testing
+        document.addEventListener('mousedown', handleTouch, false);
+
+        // Game Loop
+        setInterval(function() {
+            update();
+            draw();
+        }, 30); // ~33 FPS
+
+    </script>
+</body>
+</html>
