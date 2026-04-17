@@ -8,201 +8,167 @@ metadata:
 
 # 3DS Web Development
 
-The Nintendo 3DS browser is a unique platform with significant constraints. This skill helps you build web experiences that work within its limitations.
+The Nintendo 3DS browser is a unique platform with significant constraints. This skill helps you build web experiences that work on this legacy hardware.
 
-## Hardware Constraints
+## Hardware Overview
 
-| Model | CPU | RAM |
-|-------|-----|-----|
-| Old 3DS | 268 MHz ARM11 | 128 MB |
-| New 3DS | 804 MHz ARM11 | 256 MB |
-
-Always design for the Old 3DS as baseline — it has ~10x less power than a modern smartphone.
+| Spec | Old 3DS | New 3DS |
+|------|---------|---------|
+| CPU | 268 MHz ARM11 | 804 MHz ARM11 (dual-core) |
+| RAM | 128 MB (shared) | 256 MB (shared) |
+| Screen | 400x240 (top), 320x240 (bottom) | Same |
 
 ## Browser Limitations
 
-- **Engine**: Older WebKit (~iOS 5 era)
-- **JavaScript**: No ES6+, no arrow functions, no Promises, no async/await
-- **CSS**: Limited, no flexbox/grid, basic animations only
-- **Canvas**: 2D support (Partial), No WebGL
-- **Storage**: LocalStorage is volatile (cleared on browser restart)
+- **Engine**: Old WebKit (based on NetFront NX)
+- **Standards**: HTML4-level HTML, CSS2.1-level CSS, ES3 JavaScript
+- **No ES6+**: No arrow functions, const/let, template literals, destructuring, classes, modules, Promises, async/await, etc.
+- **No WebGL**: 3D hardware acceleration unavailable
+- **No Geolocation API**
+- **No WebSocket**: Use `XMLHttpRequest` (XHR) long-polling instead
+- **No Web Workers**: All processing blocks the main thread
+- **Limited Storage**: `localStorage` is volatile (erased on power off), unreliable for persistence
+- **Poor media codec support**: Limited audio (AAC only) and no H.264 video in browser
+
+## Input Controls
+
+### Confirmed Working Input Methods
+
+#### Keyboard Events (D-Pad & A Button)
+The D-Pad and A button dispatch standard `keydown`/`keyup` events with `e.keyCode`:[^1][^2]
+
+| Button | KeyCode | Key | `preventDefault` |
+|--------|---------|-----|------------------|
+| D-Pad Up | 38 | ArrowUp | ✅ Works |
+| D-Pad Down | 40 | ArrowDown | ✅ Works |
+| D-Pad Left | 37 | ArrowLeft | ✅ Works |
+| D-Pad Right | 39 | ArrowRight | ✅ Works |
+| A | 13 | Enter | ✅ Works |
+
+```javascript
+document.addEventListener('keydown', function(e) {
+    e.preventDefault(); // stops default browser behavior
+    switch(e.keyCode) {
+        case 38: /* up */    break;
+        case 40: /* down */  break;
+        case 37: /* left */  break;
+        case 39: /* right */ break;
+        case 13: /* A */     break;
+    }
+});
+document.addEventListener('keyup', function(e) {
+    e.preventDefault();
+    // handle release
+});
+```
+
+#### Touch Screen
+- Bottom screen acts as a touch input device
+- Fires standard `touchstart`, `touchmove`, `touchend` events
+- Also fires `mousedown`/`mousemove`/`mouseup` when tapping
+- Use `e.touches[0].clientX` and `clientY` for coordinates
+
+### Unavailable / Unreliable Input
+
+| Button | Behavior |
+|--------|----------|
+| B | Unmapped / no known event |
+| X | Browser zoom out (fires `resize`) |
+| Y | Browser zoom in (fires `resize`) |
+| L | Browser back (history) — may be hookable via `history.pushState` |
+| R | Browser forward (history) — may be hookable via `history.pushState` |
+| Start/Select | Browser toolbar toggle |
+| ZL/ZR | Not intercepted |
+
+**Gamepad API (`navigator.webkitGetGamepads`)**: Does NOT return button states on real hardware. Do not rely on it.[^1]
+
+### Button Conflicts with Browser
+Most buttons are **hijacked by browser behavior** and cannot be used freely.[^1]
+
+**Safely usable for games:** Only **Up, Down, Left, Right, A, and touch** can be used without browser interference.
 
 ## Development Philosophy
 
-### Hybrid Architecture
-Use a balanced approach between client-side interactivity and server-side state:
-- **Interactivity**: Use "Old JS" (ES5) for UI toggles, animations, and immediate feedback.
-- **Persistence**: Use SSR for data that must survive browser restarts (LocalStorage is volatile).
-- **ES5 Only**: No ES6+, no arrow functions, no template literals, no `let`/`const`, no Promises.
+### Server-Side Everything
+100% of business logic and HTML generation should happen on the server. The 3DS browser is a terminal, not a compute platform.
 
-### State Persistence
-Since LocalStorage is unreliable (cleared on exit):
-- Use standard `<form>` submissions for critical data changes.
-- Use Server-side sessions or a database for long-term state.
-- Use AJAX to enhance the UI without requiring full page reloads for every interaction.
+**Recommended stacks:**
+- Node.js + Express
+- PHP
+- Python + Flask/FastAPI
 
-### Form Handling
-```html
-<form action="/submit" method="POST">
-  <input type="text" name="item">
-  <button type="submit">Add</button>
-</form>
-```
+### Form Persistence Over LocalStorage
+`localStorage` is unreliable and volatile on the 3DS. Use standard `<form>` submissions with server-side sessions or cookies for persistence.
 
-### AJAX and Interactivity
-Use JavaScript to make the page feel responsive. For example, toggle a menu or show a loading indicator immediately, even if the final state is saved on the server.
+### Use AJAX Sparingly
+- Reserve AJAX for small UI updates
+- Default to full page submissions for state changes
+- Keep payloads minimal
 
-## Input Handling
+### Input Handling
+Use keyboard events for D-Pad and A button. Use `preventDefault()` to stop browser defaults.
 
-The 3DS has unique input methods:
-
-### D-Pad and Buttons
 ```javascript
+// Keyboard input for 3DS D-Pad + A
+var keys = {38:'up', 40:'down', 37:'left', 39:'right', 13:'a'};
+var state = {};
 document.addEventListener('keydown', function(e) {
-    var display = document.getElementById('display');
-    switch(e.keyCode) {
-        case 13: display.innerText = "Button: A"; break;
-        case 27: display.innerText = "Button: B (Esc)"; break;
-        case 37: display.innerText = "D-Pad: Left"; break;
-        case 38: display.innerText = "D-Pad: Up"; break;
-        case 39: display.innerText = "D-Pad: Right"; break;
-        case 40: display.innerText = "D-Pad: Down"; break;
+    var k = keys[e.keyCode];
+    if (k) {
+        e.preventDefault();
+        state[k] = true;
+        // handle press
+    }
+});
+document.addEventListener('keyup', function(e) {
+    var k = keys[e.keyCode];
+    if (k) {
+        e.preventDefault();
+        state[k] = false;
+        // handle release
     }
 });
 ```
 
-### Touch Screen
-- Single touch only
-- Avoid multi-touch gestures
-- Large tap targets (minimum 44px)
+## Constraints
 
-## Canvas API
+### RAM
+Large canvas buffers or multiple canvases will quickly trigger **Page too large** errors or crashes. Keep canvases small (max ~400x240).
 
-The 3DS supports the HTML5 Canvas 2D API, but it is highly constrained by the system's limited RAM (128MB shared).
+### No WebGL
+3D hardware acceleration is not available in the browser. Use 2D canvas primitives only.
 
-### Screen Resolutions
-- **Top Screen**: 400x240 pixels.
-- **Bottom Screen**: 320x240 pixels.
+### Performance
+Heavy pixel manipulation (`getImageData`) and complex physics will run at ~1-2 FPS. Optimize loops, minimize DOM manipulation, and avoid layout thrashing.
 
-### Constraints
-- **RAM**: Large canvas buffers or multiple canvases will quickly trigger "Page too large" errors or crashes. Keep canvases small.
-- **No WebGL**: 3D hardware acceleration is not available in the browser. Use 2D primitives only.
-- **Performance**: Heavy pixel manipulation (`getImageData`) and complex paths are slow. Aim for ~15 FPS.
+## Canvas
 
-### Optimization Tips
-1. **Minimize Redraws**: Only redraw parts of the canvas that change using `clearRect()`.
-2. **Simple Shapes**: Use `fillRect()` and `strokeRect()` instead of complex paths where possible.
-3. **Alpha Blending**: Avoid heavy use of transparency/globalAlpha as it taxes the CPU.
+- **Maximum size:** 400x240 pixels (top screen), 320x240 (bottom)
+- Only 2D context available
+- Use `requestAnimationFrame` sparingly; prefer event-driven rendering
+- Offscreen canvas not supported
 
-**Example: Simple Canvas Animation (ES5)**
-```javascript
-var canvas = document.getElementById('myCanvas');
-var ctx = canvas.getContext('2d');
-var x = 0;
+## CSS Constraints
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear
-    ctx.fillStyle = "#FF0000";
-    ctx.fillRect(x, 50, 20, 20); // Draw square
-    x = (x + 2) % canvas.width;
-    setTimeout(draw, 66); // ~15 FPS
-}
-draw();
-```
-
-## Best Practices
-
-1. **Keep it simple** — Minimal JavaScript, maximum server rendering
-2. **Optimize images** — Small file sizes, use appropriate formats
-3. **Test on device** — Emulators aren't perfect
-4. **Offline support** — Consider what works without internet
-5. **Consider the screen** — 400x240 resolution, ~15 fps for animations
-
-## Project Structure
-
-```
-my-3ds-site/
-├── server.js          # Express/Node server
-├── views/
-│   ├── index.ejs      # Server-rendered template
-│   └── todo.ejs
-├── public/
-│   ├── style.css
-│   └── script.js      # Minimal client JS
-└── package.json
-```
-
-**Example: Hybrid To-Do List**
-
-**Server (Express):**
-```javascript
-const express = require('express');
-const app = express();
-app.use(express.urlencoded({ extended: true }));
-app.set('view engine', 'ejs');
-
-var todos = []; // Simple in-memory storage
-
-app.get('/', function(req, res) {
-  res.render('index', { todos: todos });
-});
-
-app.post('/add', function(req, res) {
-  if (req.body.item) {
-    todos.push(req.body.item);
-  }
-  res.redirect('/');
-});
-```
-
-**Template (EJS):**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>3DS To-Do</title>
-  <style>
-    .loading { display: none; color: gray; }
-  </style>
-</head>
-<body>
-  <h1>To-Do</h1>
-  <ul id="todo-list">
-    <% for(var i=0; i<todos.length; i++) { %>
-      <li><%= todos[i] %></li>
-    <% } %>
-  </ul>
-
-  <div id="status" class="loading">Saving...</div>
-
-  <form action="/add" method="POST" onsubmit="showLoading()">
-    <input type="text" name="item" id="item-input">
-    <button type="submit">Add</button>
-  </form>
-
-  <script>
-    // "Old JS" for immediate feedback
-    function showLoading() {
-      document.getElementById('status').style.display = 'block';
-      // Local check before sending
-      var input = document.getElementById('item-input');
-      if (input.value === '') {
-        alert('Please enter an item');
-        return false;
-      }
-      return true;
-    }
-  </script>
-</body>
-</html>
-```
+- Vendor prefix everything: `-webkit-`, `-moz-`, `-o-`, `-ms-`
+- Test layouts on actual hardware or accurate emulator
+- Keep selectors simple and avoid complex combinators
 
 ## Getting Started
 
 When the user wants to build a 3DS web project:
+
 1. Ask about their target experience (simple page, interactive app, game)
 2. Recommend server-side stack based on their preference (Node, PHP, Python)
 3. Help structure the project for server-rendered HTML
-4. Guide on input handling patterns
-5. Test and optimize for 3DS constraints
+4. Use keyboard events for D-Pad/A input + touch events for the touchscreen
+5. Test and verify on actual hardware or emulator
+
+## Examples
+
+- `/examples/debug.html` — Input tester showing all button codes via polling
+
+---
+
+[^1]: https://www.reddit.com/r/3DS/comments/4umrwj/using_the_3ds_controls_to_build_games_for_the_3ds/
+[^2]: https://github.com/jwarby/3ds-to-pc-controller
