@@ -9,57 +9,60 @@
         body { margin: 0; background: #111; color: #0f0; font-family: monospace; }
         #title { padding: 12px; font-size: 18px; border-bottom: 1px solid #030; text-align: center; }
         #cross { display: flex; flex-direction: column; align-items: center; margin: 30px auto; width: 160px; height: 160px; }
-        .arm { position: absolute; background: #0a0; color: #0f0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border: 2px solid #0f0; }
-        .arm.up { top: 0; left: 60px; width: 40px; height: 50px; border-radius: 8px 8px 0 0; }
-        .arm.dn { bottom: 0; left: 60px; width: 40px; height: 50px; border-radius: 0 0 8px 8px; }
-        .arm.lf { left: 0; top: 60px; width: 50px; height: 40px; border-radius: 8px 0 0 8px; }
-        .arm.rt { right: 0; top: 60px; width: 50px; height: 40px; border-radius: 0 8px 8px 0; }
-        .arm.center { position: absolute; top: 55px; left: 55px; width: 50px; height: 50px; background: #0a0; border-radius: 50%; border: 2px solid #0f0; }
-        .arm.active { background: #0f0; color: #000; }
-        #keylog { margin: 20px; padding: 10px; background: #0a0a0a; border: 1px solid #030; height: 120px; overflow: auto; font-size: 14px; }
-        #hint { padding: 10px; text-align: center; color: #060; font-size: 12px; }
+        .arm { position: absolute; background: #0a0; color: #0f0; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        #up { top: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 50px; border-radius: 4px 4px 0 0; }
+        #dn { bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 50px; border-radius: 0 0 4px 4px; }
+        #lf { left: 0; top: 50%; transform: translateY(-50%); width: 50px; height: 40px; border-radius: 4px 0 0 4px; }
+        #rt { right: 0; top: 50%; transform: translateY(-50%); width: 50px; height: 40px; border-radius: 0 4px 4px 0; }
+        #ctr { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; background: #030; border-radius: 2px; }
+        .active { background: #0f0 !important; color: #111 !important; }
+        #buttons { display: flex; gap: 20px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
+        .btn { padding: 20px 30px; background: #0a0; border-radius: 8px; font-size: 24px; min-width: 60px; text-align: center; }
+        #log { margin: 30px 10px; padding: 10px; background: #000; height: 120px; overflow: auto; font-size: 12px; border: 1px solid #030; }
+        #note { margin: 10px; padding: 10px; font-size: 11px; color: #060; text-align: center; }
     </style>
 </head>
 <body>
     <div id="title">3DS INPUT DEBUG</div>
-
     <div id="cross">
-        <div class="arm up" id="up">UP<br><small>38</small></div>
-        <div class="arm dn" id="dn">DN<br><small>40</small></div>
-        <div class="arm lf" id="lf">LF<br><small>37</small></div>
-        <div class="arm rt" id="rt">RT<br><small>39</small></div>
-        <div class="arm center"></div>
+        <div id="up" class="arm">UP<br>38</div>
+        <div id="dn" class="arm">DN<br>40</div>
+        <div id="lf" class="arm">LF<br>37</div>
+        <div id="rt" class="arm">RT<br>39</div>
+        <div id="ctr"></div>
     </div>
-
-    <div id="keylog"></div>
-    <div id="hint">D-PAD: Up(38) Down(40) Left(37) Right(39)</div>
-
+    <div id="buttons">
+        <div id="a-btn" class="btn">A<br>13</div>
+        <div id="b-btn" class="btn" style="color:#060">B<br>?</div>
+        <div id="x-btn" class="btn" style="color:#060">X<br>zoom</div>
+        <div id="y-btn" class="btn" style="color:#060">Y<br>zoom</div>
+    </div>
+    <div id="note">D-Pad and A respond to keydown/keyup. B/X/Y trigger browser actions.</div>
+    <div id="log"></div>
 <script>
 (function() {
-    var log = document.getElementById('keylog');
-    var arms = { Up: 'up', Down: 'dn', Left: 'lf', Right: 'rt' };
-    var active = {};
-
-    function addLog(msg) {
-        log.innerHTML = (new Date().toISOString().substr(11,12)) + ' ' + msg + '<br>' + log.innerHTML;
-    }
-
-    window.addEventListener('keydown', function(e) {
-        if (arms[e.key]) {
-            active[arms[e.key]] = true;
-            document.getElementById(arms[e.key]).classList.add('active');
-        }
-        addLog('KEY ' + e.keyCode + ' (' + e.key + ')');
-    });
-
-    window.addEventListener('keyup', function(e) {
-        if (arms[e.key]) {
-            active[arms[e.key]] = false;
-            document.getElementById(arms[e.key]).classList.remove('active');
+    var keys = {38:'up', 40:'dn', 37:'lf', 39:'rt', 13:'a'};
+    var log = document.getElementById('log');
+    function l(m) { log.innerHTML = m + '<br>' + log.innerHTML; }
+    document.addEventListener('keydown', function(e) {
+        var k = keys[e.keyCode];
+        if (k) {
+            e.preventDefault();
+            document.getElementById(k).classList.add('active');
+            l(Date.now() + ' keydn ' + e.keyCode);
+        } else {
+            l(Date.now() + ' keydn ' + e.keyCode + ' (unmapped)');
         }
     });
-
-    addLog('READY');
+    document.addEventListener('keyup', function(e) {
+        var k = keys[e.keyCode];
+        if (k) {
+            e.preventDefault();
+            document.getElementById(k).classList.remove('active');
+            l(Date.now() + ' keyup ' + e.keyCode);
+        }
+    });
+    l('ready');
 })();
 </script>
 </body>
