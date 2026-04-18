@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Touch Draw</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #toolbar {
+            background: #222;
+            padding: 5px 10px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .tool-label { font-size: 10px; color: #666; }
+
+        .color-btn {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #444;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .color-btn.selected { border-color: #fff; }
+
+        .brush-btn {
+            padding: 4px 8px;
+            background: #333;
+            border: none;
+            color: #eee;
+            font-size: 12px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .brush-btn.selected { background: #555; }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #fff;
+        }
+
+        #canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            padding: 3px;
+            background: rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <span class="tool-label">COLOR:</span>
+        <div class="color-btn selected" data-color="#000" style="background:#000"></div>
+        <div class="color-btn" data-color="#f00" style="background:#f00"></div>
+        <div class="color-btn" data-color="#00f" style="background:#00f"></div>
+        <div class="color-btn" data-color="#0a0" style="background:#0a0"></div>
+        <div class="color-btn" data-color="#ff0" style="background:#ff0"></div>
+        
+        <span class="tool-label" style="margin-left:10px">SIZE:</span>
+        <button class="brush-btn selected" data-size="2">S</button>
+        <button class="brush-btn" data-size="4">M</button>
+        <button class="brush-btn" data-size="8">L</button>
+        
+        <button class="brush-btn" id="clear-btn" style="margin-left:auto;background:#a33">CLEAR</button>
+    </div>
+    <div id="canvas-container">
+        <canvas id="canvas" width="400" height="205"></canvas>
+        <div id="hint">
+            <span style="color:#0af">Touch</span> Draw &bull;
+            <span style="color:#0af">D-Pad Up</span> Clear &bull;
+            <span style="color:#0af">D-Pad Down</span> Color &bull;
+            <span style="color:#0af">A</span> Brush Size
+        </div>
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        
+        var currentColor = '#000';
+        var currentSize = 2;
+        var isDrawing = false;
+        var lastX = 0;
+        var lastY = 0;
+        
+        var colorIndex = 0;
+        var colors = ['#000', '#f00', '#00f', '#0a0', '#ff0'];
+        var sizeIndex = 0;
+        var sizes = [2, 4, 8];
+        
+        function init() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            loadFromCookie();
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            var rect = canvas.getBoundingClientRect();
+            var x, y;
+            
+            if (e.touches) {
+                x = e.touches[0].clientX - rect.left;
+                y = e.touches[0].clientY - rect.top;
+            } else {
+                x = e.clientX - rect.left;
+                y = e.clientY - rect.top;
+            }
+            
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentSize;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
+            
+            if (e.preventDefault) e.preventDefault();
+        }
+        
+        function startDraw(e) {
+            var rect = canvas.getBoundingClientRect();
+            if (e.touches) {
+                lastX = e.touches[0].clientX - rect.left;
+                lastY = e.touches[0].clientY - rect.top;
+            } else {
+                lastX = e.clientX - rect.left;
+                lastY = e.clientY - rect.top;
+            }
+            isDrawing = true;
+            draw(e);
+        }
+        
+        function stopDraw() {
+            isDrawing = false;
+            saveToCookie();
+        }
+        
+        // Touch events
+        canvas.addEventListener('touchstart', startDraw, false);
+        canvas.addEventListener('touchmove', draw, false);
+        canvas.addEventListener('touchend', stopDraw, false);
+        
+        // Mouse events for desktop testing
+        canvas.addEventListener('mousedown', startDraw, false);
+        canvas.addEventListener('mousemove', draw, false);
+        canvas.addEventListener('mouseup', stopDraw, false);
+        canvas.addEventListener('mouseout', stopDraw, false);
+        
+        // Color selection
+        var colorBtns = document.querySelectorAll('.color-btn');
+        for (var i = 0; i < colorBtns.length; i++) {
+            colorBtns[i].onclick = function() {
+                for (var j = 0; j < colorBtns.length; j++) {
+                    colorBtns[j].classList.remove('selected');
+                }
+                this.classList.add('selected');
+                currentColor = this.getAttribute('data-color');
+                colorIndex = colors.indexOf(currentColor);
+            };
+        }
+        
+        // Brush size selection
+        var brushBtns = document.querySelectorAll('.brush-btn[data-size]');
+        for (var i = 0; i < brushBtns.length; i++) {
+            brushBtns[i].onclick = function() {
+                for (var j = 0; j < brushBtns.length; j++) {
+                    brushBtns[j].classList.remove('selected');
+                }
+                this.classList.add('selected');
+                currentSize = parseInt(this.getAttribute('data-size'), 10);
+                sizeIndex = sizes.indexOf(currentSize);
+            };
+        }
+        
+        // Clear button
+        document.getElementById('clear-btn').onclick = clearCanvas;
+        
+        function clearCanvas() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveToCookie();
+        }
+        
+        // D-Pad controls
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 38) { // Up - Clear
+                e.preventDefault();
+                clearCanvas();
+            } else if (key === 40) { // Down - Next color
+                e.preventDefault();
+                colorIndex = (colorIndex + 1) % colors.length;
+                currentColor = colors[colorIndex];
+                for (var i = 0; i < colorBtns.length; i++) {
+                    colorBtns[i].classList.remove('selected');
+                    if (colorBtns[i].getAttribute('data-color') === currentColor) {
+                        colorBtns[i].classList.add('selected');
+                    }
+                }
+            } else if (key === 13) { // A - Next brush size
+                e.preventDefault();
+                sizeIndex = (sizeIndex + 1) % sizes.length;
+                currentSize = sizes[sizeIndex];
+                for (var i = 0; i < brushBtns.length; i++) {
+                    brushBtns[i].classList.remove('selected');
+                    if (parseInt(brushBtns[i].getAttribute('data-size'), 10) === currentSize) {
+                        brushBtns[i].classList.add('selected');
+                    }
+                }
+            }
+        };
+        
+        // Cookie persistence
+        function saveToCookie() {
+            try {
+                var imageData = canvas.toDataURL('image/png');
+                if (imageData.length < 4000) { // Limit size for cookie
+                    document.cookie = '3ds_draw=' + encodeURIComponent(imageData) + '; path=/';
+                }
+            } catch (e) {}
+        }
+        
+        function loadFromCookie() {
+            try {
+                var c = document.cookie.split(';');
+                for (var i = 0; i < c.length; i++) {
+                    var pair = c[i].split('=');
+                    if (pair[0].indexOf('3ds_draw') !== -1) {
+                        var data = decodeURIComponent(pair[1]);
+                        var img = new Image();
+                        img.onload = function() {
+                            ctx.drawImage(img, 0, 0);
+                        };
+                        img.src = data;
+                        break;
+                    }
+                }
+            } catch (e) {}
+        }
+        
+        init();
+    })();
+    </script>
+</body>
+</html>
