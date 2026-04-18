@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Calculator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #1a1a1a;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #display {
+            background: #2d3a2d;
+            color: #9f9;
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            text-align: right;
+            padding: 15px 20px;
+            border-bottom: 4px solid #1a1a1a;
+            min-height: 60px;
+            line-height: 1.2;
+            overflow: hidden;
+        }
+
+        #expression {
+            font-size: 12px;
+            color: #6a6;
+            text-align: right;
+            min-height: 16px;
+            margin-bottom: 4px;
+        }
+
+        #grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 2px;
+            padding: 2px;
+        }
+
+        .btn {
+            background: #333;
+            border: none;
+            color: #eee;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 2px;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+
+        .btn:active, .btn.active {
+            background: #555;
+        }
+
+        .btn.num { background: #222; }
+        .btn.op { background: #e60; color: #fff; }
+        .btn.op:active, .btn.op.active { background: #f80; }
+        .btn.clear { background: #a33; color: #fff; }
+        .btn.clear:active, .btn.clear.active { background: #c44; }
+        .btn.equals { background: #366; color: #fff; }
+        .btn.equals:active, .btn.equals.active { background: #488; }
+
+        .selected {
+            outline: 3px solid #0af;
+            outline-offset: -3px;
+        }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            padding: 3px;
+            background: #111;
+        }
+    </style>
+</head>
+<body>
+    <div id="display">
+        <div id="expression"></div>
+        <div id="result">0</div>
+    </div>
+    <div id="grid">
+        <button class="btn clear" data-action="C">C</button>
+        <button class="btn clear" data-action="CE">CE</button>
+        <button class="btn op" data-action="/">÷</button>
+        <button class="btn op" data-action="*">×</button>
+        
+        <button class="btn num" data-action="7">7</button>
+        <button class="btn num" data-action="8">8</button>
+        <button class="btn num" data-action="9">9</button>
+        <button class="btn op" data-action="-">-</button>
+        
+        <button class="btn num" data-action="4">4</button>
+        <button class="btn num" data-action="5">5</button>
+        <button class="btn num" data-action="6">6</button>
+        <button class="btn op" data-action="+">+</button>
+        
+        <button class="btn num" data-action="1">1</button>
+        <button class="btn num" data-action="2">2</button>
+        <button class="btn num" data-action="3">3</button>
+        <button class="btn equals" data-action="=">=</button>
+        
+        <button class="btn num" style="grid-column: span 2;" data-action="0">0</button>
+        <button class="btn num" data-action=".">.</button>
+        <button class="btn op" data-action="±">±</button>
+    </div>
+    <div id="hint">
+        <span style="color:#0af">D-Pad</span> Navigate &bull; <span style="color:#0af">A</span> Select &bull; <span style="color:#0af">Touch</span> Tap
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var display = document.getElementById('result');
+        var exprDisplay = document.getElementById('expression');
+        var buttons = document.querySelectorAll('.btn');
+        
+        var current = '0';
+        var previous = null;
+        var operation = null;
+        var justCalculated = false;
+        var cursor = 0;
+        var maxCursor = buttons.length - 1;
+
+        function updateDisplay() {
+            var displayVal = current;
+            if (displayVal.length > 12) {
+                displayVal = displayVal.substring(0, 12);
+            }
+            display.innerHTML = displayVal;
+        }
+
+        function handleNumber(n) {
+            if (justCalculated) {
+                current = n;
+                justCalculated = false;
+            } else if (current === '0' && n !== '.') {
+                current = n;
+            } else if (n === '.') {
+                if (current.indexOf('.') === -1) {
+                    current += '.';
+                }
+            } else {
+                if (current.length < 12) {
+                    current += n;
+                }
+            }
+            updateDisplay();
+        }
+
+        function handleOperation(op) {
+            if (op === 'C') {
+                current = '0';
+                previous = null;
+                operation = null;
+                exprDisplay.innerHTML = '';
+            } else if (op === 'CE') {
+                current = '0';
+            } else if (op === '±') {
+                if (current !== '0') {
+                    if (current.charAt(0) === '-') {
+                        current = current.substring(1);
+                    } else {
+                        current = '-' + current;
+                    }
+                }
+            } else if (op === '=') {
+                if (previous !== null && operation !== null) {
+                    var a = parseInt(previous, 10);
+                    var b = parseInt(current, 10);
+                    var result;
+                    switch (operation) {
+                        case '+': result = a + b; break;
+                        case '-': result = a - b; break;
+                        case '*': result = a * b; break;
+                        case '/': result = b !== 0 ? Math.floor(a / b) : 'Err'; break;
+                    }
+                    current = String(result);
+                    previous = null;
+                    operation = null;
+                    exprDisplay.innerHTML = '';
+                    justCalculated = true;
+                }
+            } else {
+                if (previous !== null && operation !== null && !justCalculated) {
+                    var a = parseInt(previous, 10);
+                    var b = parseInt(current, 10);
+                    var result;
+                    switch (operation) {
+                        case '+': result = a + b; break;
+                        case '-': result = a - b; break;
+                        case '*': result = a * b; break;
+                        case '/': result = b !== 0 ? Math.floor(a / b) : 'Err'; break;
+                    }
+                    current = String(result);
+                }
+                previous = current;
+                operation = op;
+                exprDisplay.innerHTML = current + ' ' + op;
+                current = '0';
+            }
+            updateDisplay();
+        }
+
+        function pressButton(action) {
+            if (action >= '0' && action <= '9' || action === '.') {
+                handleNumber(action);
+            } else {
+                handleOperation(action);
+            }
+        }
+
+        function updateCursor() {
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].classList.remove('selected');
+            }
+            buttons[cursor].classList.add('selected');
+        }
+
+        // Initialize
+        updateCursor();
+        updateDisplay();
+
+        // Keyboard input
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 38) { // Up
+                cursor = Math.max(0, cursor - 4);
+                e.preventDefault();
+            } else if (key === 40) { // Down
+                cursor = Math.min(maxCursor, cursor + 4);
+                e.preventDefault();
+            } else if (key === 37) { // Left
+                cursor = Math.max(0, cursor - 1);
+                e.preventDefault();
+            } else if (key === 39) { // Right
+                cursor = Math.min(maxCursor, cursor + 1);
+                e.preventDefault();
+            } else if (key === 13) { // A / Enter
+                var btn = buttons[cursor];
+                pressButton(btn.getAttribute('data-action'));
+                e.preventDefault();
+            }
+            updateCursor();
+        };
+
+        // Touch/click input
+        for (var i = 0; i < buttons.length; i++) {
+            (function(idx) {
+                buttons[idx].onclick = function() {
+                    pressButton(this.getAttribute('data-action'));
+                    cursor = idx;
+                    updateCursor();
+                };
+            })(i);
+        }
+    })();
+    </script>
+</body>
+</html>

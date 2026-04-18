@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Stopwatch</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #timer {
+            font-size: 42px;
+            text-align: center;
+            padding: 30px 0 10px;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        #phase {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        #phase.work { color: #f44; }
+        #phase.break { color: #4f4; }
+
+        #laps {
+            background: #0a0a0a;
+            height: 80px;
+            overflow-y: auto;
+            margin: 0 10px;
+            padding: 5px;
+            font-size: 11px;
+            color: #888;
+            border: 1px solid #222;
+        }
+
+        .lap {
+            padding: 2px 5px;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .lap:nth-child(odd) { background: #0d0d0d; }
+
+        #controls {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+
+        .btn-start { background: #0a0; color: #fff; }
+        .btn-stop { background: #a00; color: #fff; }
+        .btn-lap { background: #44a; color: #fff; }
+        .btn-reset { background: #444; color: #fff; }
+
+        .btn.active { box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            padding: 5px;
+            font-family: sans-serif;
+        }
+
+        #pomodoro-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        #pomodoro-toggle.on { color: #0a0; }
+    </style>
+</head>
+<body>
+    <div id="pomodoro-toggle">POMODORO: OFF</div>
+    <div id="timer">00:00:00</div>
+    <div id="phase"></div>
+    <div id="laps"></div>
+    <div id="controls">
+        <button class="btn btn-start" id="btn-start">START</button>
+        <button class="btn btn-lap" id="btn-lap">LAP</button>
+        <button class="btn btn-reset" id="btn-reset">RESET</button>
+    </div>
+    <div id="hint">
+        <span style="color:#0af">UP</span> Start/Stop &bull; 
+        <span style="color:#0af">DOWN</span> Reset &bull; 
+        <span style="color:#0af">A</span> Lap &bull; 
+        <span style="color:#0af">Touch</span> Toggle
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var timerDisplay = document.getElementById('timer');
+        var phaseDisplay = document.getElementById('phase');
+        var lapsDisplay = document.getElementById('laps');
+        var pomodoroToggle = document.getElementById('pomodoro-toggle');
+        
+        var startTime = null;
+        var elapsedTime = 0;
+        var running = false;
+        var interval = null;
+        var laps = [];
+        var maxLaps = 10;
+
+        var pomodoroMode = false;
+        var pomodoroPhase = 'work';
+        var pomodoroTime = 25 * 60 * 1000;
+        var workDuration = 25 * 60 * 1000;
+        var breakDuration = 5 * 60 * 1000;
+
+        function formatTime(ms) {
+            var totalSec = Math.floor(ms / 1000);
+            var min = Math.floor(totalSec / 60);
+            var sec = totalSec % 60;
+            var cent = Math.floor((ms % 1000) / 10);
+            return String(min).padStart(2, '0') + ':' + 
+                   String(sec).padStart(2, '0') + ':' + 
+                   String(cent).padStart(2, '0');
+        }
+
+        function updateDisplay() {
+            var displayMs = running ? (Date.now() - startTime + elapsedTime) : elapsedTime;
+            
+            if (pomodoroMode) {
+                var remaining = pomodoroTime - displayMs;
+                if (remaining <= 0) {
+                    if (pomodoroPhase === 'work') {
+                        pomodoroPhase = 'break';
+                        pomodoroTime = breakDuration;
+                        displayMs = 0;
+                    } else {
+                        pomodoroPhase = 'work';
+                        pomodoroTime = workDuration;
+                        displayMs = 0;
+                    }
+                }
+                var remainingStr = Math.ceil(remaining / 1000);
+                var mins = Math.floor(remainingStr / 60);
+                var secs = remainingStr % 60;
+                timerDisplay.innerHTML = String(mins).padStart(2, '0') + ':' + 
+                                        String(secs).padStart(2, '0') + ':00';
+                phaseDisplay.innerHTML = pomodoroPhase === 'work' ? 'WORK TIME' : 'BREAK TIME';
+                phaseDisplay.className = pomodoroPhase === 'work' ? 'work' : 'break';
+            } else {
+                timerDisplay.innerHTML = formatTime(displayMs);
+                phaseDisplay.innerHTML = '';
+                phaseDisplay.className = '';
+            }
+        }
+
+        function start() {
+            if (!running) {
+                running = true;
+                startTime = Date.now();
+                interval = setInterval(updateDisplay, 30);
+                document.getElementById('btn-start').innerHTML = 'STOP';
+                document.getElementById('btn-start').className = 'btn btn-stop active';
+            }
+        }
+
+        function stop() {
+            if (running) {
+                running = false;
+                elapsedTime += Date.now() - startTime;
+                clearInterval(interval);
+                document.getElementById('btn-start').innerHTML = 'START';
+                document.getElementById('btn-start').className = 'btn btn-start';
+            }
+        }
+
+        function toggle() {
+            if (running) stop();
+            else start();
+        }
+
+        function lap() {
+            if (!running) return;
+            var lapTime = Date.now() - startTime + elapsedTime;
+            laps.unshift(formatTime(lapTime));
+            if (laps.length > maxLaps) laps.pop();
+            
+            var html = '';
+            for (var i = 0; i < laps.length; i++) {
+                html += '<div class="lap">' + (i + 1) + '. ' + laps[i] + '</div>';
+            }
+            lapsDisplay.innerHTML = html;
+        }
+
+        function reset() {
+            stop();
+            elapsedTime = 0;
+            laps = [];
+            lapsDisplay.innerHTML = '';
+            timerDisplay.innerHTML = '00:00:00';
+            phaseDisplay.innerHTML = '';
+            phaseDisplay.className = '';
+            if (pomodoroMode) {
+                pomodoroPhase = 'work';
+                pomodoroTime = workDuration;
+            }
+        }
+
+        function togglePomodoro() {
+            pomodoroMode = !pomodoroMode;
+            pomodoroToggle.innerHTML = 'POMODORO: ' + (pomodoroMode ? 'ON' : 'OFF');
+            pomodoroToggle.className = pomodoroMode ? 'on' : '';
+            if (pomodoroMode) {
+                pomodoroPhase = 'work';
+                pomodoroTime = workDuration;
+            }
+            reset();
+        }
+
+        // Keyboard input
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 38) { // Up
+                e.preventDefault();
+                toggle();
+            } else if (key === 40) { // Down
+                e.preventDefault();
+                reset();
+            } else if (key === 13) { // A
+                e.preventDefault();
+                lap();
+            }
+        };
+
+        // Touch input
+        document.body.ontouchstart = function(e) {
+            var target = e.target;
+            if (target.tagName === 'BUTTON') return;
+            
+            var rect = document.body.getBoundingClientRect();
+            var x = e.touches[0].clientX - rect.left;
+            var y = e.touches[0].clientY - rect.top;
+            
+            if (y < 80) {
+                togglePomodoro();
+            } else {
+                toggle();
+            }
+        };
+
+        // Button handlers
+        document.getElementById('btn-start').onclick = toggle;
+        document.getElementById('btn-lap').onclick = lap;
+        document.getElementById('btn-reset').onclick = reset;
+        pomodoroToggle.onclick = togglePomodoro;
+
+        // Cookie persistence for settings
+        function saveSettings() {
+            var data = JSON.stringify({
+                pomodoro: pomodoroMode,
+                work: workDuration,
+                breakTime: breakDuration
+            });
+            document.cookie = '3ds_stopwatch=' + encodeURIComponent(data) + '; path=/';
+        }
+
+        function loadSettings() {
+            var c = document.cookie.split(';');
+            for (var i = 0; i < c.length; i++) {
+                var pair = c[i].split('=');
+                if (pair[0].indexOf('3ds_stopwatch') !== -1) {
+                    try {
+                        var data = JSON.parse(decodeURIComponent(pair[1]));
+                        if (data.pomodoro) {
+                            pomodoroMode = true;
+                            workDuration = data.work || 25 * 60 * 1000;
+                            breakDuration = data.breakTime || 5 * 60 * 1000;
+                            pomodoroToggle.innerHTML = 'POMODORO: ON';
+                            pomodoroToggle.className = 'on';
+                        }
+                    } catch (e) {}
+                    break;
+                }
+            }
+        }
+
+        loadSettings();
+    })();
+    </script>
+</body>
+</html>
