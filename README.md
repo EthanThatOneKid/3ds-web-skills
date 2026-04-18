@@ -6,7 +6,6 @@ Web development skills for the Nintendo 3DS browser.
 
 ## Examples
 
-- [index.html](./examples/index.html) (launcher menu)
 - [debug.html](./examples/debug.html)
 - [flappy-bird.html](./examples/flappy-bird.html)
 - [snake.html](./examples/snake.html)
