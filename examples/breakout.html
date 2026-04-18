@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Breakout</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+            margin: 0 auto;
+            background: #222;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.8);
+            font-size: 12px;
+        }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            padding: 3px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 20px;
+            color: #0f0;
+            text-shadow: 2px 2px #000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span style="color:#0f0">SCORE: <span id="score">0</span></span>
+        <span style="color:#f00">LIVES: <span id="lives">3</span></span>
+    </div>
+    <canvas id="canvas" width="400" height="220"></canvas>
+    <div id="message"></div>
+    <div id="hint">
+        <span style="color:#0af">D-Pad</span> Move &bull;
+        <span style="color:#0af">A</span> Launch &bull;
+        <span style="color:#0af">Touch</span> Move
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var scoreEl = document.getElementById('score');
+        var livesEl = document.getElementById('lives');
+        var msgEl = document.getElementById('message');
+
+        var paddle = {
+            x: 170,
+            y: 200,
+            width: 70,
+            height: 8,
+            speed: 6
+        };
+
+        var ball = {
+            x: 200,
+            y: 180,
+            radius: 5,
+            dx: 2,
+            dy: -2,
+            speed: 4,
+            attached: true
+        };
+
+        var bricks = [];
+        var rows = 4;
+        var cols = 8;
+        var brickWidth = 45;
+        var brickHeight = 12;
+        var brickPadding = 4;
+        var brickOffsetTop = 30;
+        var brickOffsetLeft = 15;
+
+        var score = 0;
+        var lives = 3;
+        var gameOver = false;
+        var gameRunning = false;
+
+        var ballTrail = [];
+
+        function initBricks() {
+            bricks = [];
+            var colors = ['#f00', '#f80', '#ff0', '#0f0'];
+            for (var r = 0; r < rows; r++) {
+                for (var c = 0; c < cols; c++) {
+                    bricks.push({
+                        x: c * (brickWidth + brickPadding) + brickOffsetLeft,
+                        y: r * (brickHeight + brickPadding) + brickOffsetTop,
+                        width: brickWidth,
+                        height: brickHeight,
+                        color: colors[r],
+                        alive: true
+                    });
+                }
+            }
+        }
+
+        function init() {
+            score = 0;
+            lives = 3;
+            gameOver = false;
+            gameRunning = false;
+            ball.attached = true;
+            ball.x = paddle.x + paddle.width / 2;
+            ball.y = paddle.y - ball.radius;
+            initBricks();
+            updateUI();
+            msgEl.innerHTML = 'PRESS A TO LAUNCH';
+            msgEl.style.display = 'block';
+            draw();
+        }
+
+        function updateUI() {
+            scoreEl.innerHTML = score;
+            livesEl.innerHTML = lives;
+        }
+
+        function launch() {
+            if (gameOver) {
+                init();
+                return;
+            }
+            if (ball.attached) {
+                ball.attached = false;
+                ball.dx = (Math.random() - 0.5) * 3;
+                ball.dy = -ball.speed;
+                gameRunning = true;
+                msgEl.style.display = 'none';
+                gameLoop();
+            }
+        }
+
+        function gameLoop() {
+            if (!gameRunning || gameOver) return;
+
+            update();
+            draw();
+
+            setTimeout(gameLoop, 20);
+        }
+
+        function update() {
+            // Move paddle with ball attached
+            if (ball.attached) {
+                ball.x = paddle.x + paddle.width / 2;
+                ball.y = paddle.y - ball.radius;
+                return;
+            }
+
+            // Ball trail
+            ballTrail.push({ x: ball.x, y: ball.y });
+            if (ballTrail.length > 10) ballTrail.shift();
+
+            // Move ball
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Wall collision
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.dx = -ball.dx;
+            }
+            if (ball.x + ball.radius > canvas.width) {
+                ball.x = canvas.width - ball.radius;
+                ball.dx = -ball.dx;
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;
+            }
+
+            // Paddle collision
+            if (ball.y + ball.radius > paddle.y &&
+                ball.y - ball.radius < paddle.y + paddle.height &&
+                ball.x > paddle.x &&
+                ball.x < paddle.x + paddle.width) {
+                
+                ball.y = paddle.y - ball.radius;
+                
+                var hitPos = (ball.x - paddle.x) / paddle.width;
+                ball.dx = (hitPos - 0.5) * 6;
+                ball.dy = -Math.abs(ball.dy);
+                
+                if (Math.abs(ball.dx) < 0.5) ball.dx = (Math.random() - 0.5);
+            }
+
+            // Bottom - lose life
+            if (ball.y + ball.radius > canvas.height) {
+                lives--;
+                updateUI();
+                if (lives <= 0) {
+                    gameOver = true;
+                    msgEl.innerHTML = 'GAME OVER<br>SCORE: ' + score + '<br>PRESS A';
+                    msgEl.style.display = 'block';
+                    gameRunning = false;
+                } else {
+                    ball.attached = true;
+                    ball.x = paddle.x + paddle.width / 2;
+                    ball.y = paddle.y - ball.radius;
+                    ball.dx = 0;
+                    ball.dy = 0;
+                }
+            }
+
+            // Brick collision
+            for (var i = 0; i < bricks.length; i++) {
+                var b = bricks[i];
+                if (!b.alive) continue;
+
+                if (ball.x + ball.radius > b.x &&
+                    ball.x - ball.radius < b.x + b.width &&
+                    ball.y + ball.radius > b.y &&
+                    ball.y - ball.radius < b.y + b.height) {
+                    
+                    b.alive = false;
+                    score += 10;
+                    updateUI();
+
+                    // Bounce
+                    var overlapLeft = (ball.x + ball.radius) - b.x;
+                    var overlapRight = (b.x + b.width) - (ball.x - ball.radius);
+                    var overlapTop = (ball.y + ball.radius) - b.y;
+                    var overlapBottom = (b.y + b.height) - (ball.y - ball.radius);
+
+                    var minOverlapX = Math.min(overlapLeft, overlapRight);
+                    var minOverlapY = Math.min(overlapTop, overlapBottom);
+
+                    if (minOverlapX < minOverlapY) {
+                        ball.dx = -ball.dx;
+                    } else {
+                        ball.dy = -ball.dy;
+                    }
+
+                    // Check win
+                    var aliveCount = 0;
+                    for (var j = 0; j < bricks.length; j++) {
+                        if (bricks[j].alive) aliveCount++;
+                    }
+                    if (aliveCount === 0) {
+                        gameOver = true;
+                        msgEl.innerHTML = 'YOU WIN!<br>SCORE: ' + score + '<br>PRESS A';
+                        msgEl.style.display = 'block';
+                        gameRunning = false;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        function draw() {
+            // Background
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Ball trail
+            for (var i = 0; i < ballTrail.length; i++) {
+                var alpha = (i + 1) / ballTrail.length * 0.3;
+                ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+                ctx.beginPath();
+                ctx.arc(ballTrail[i].x, ballTrail[i].y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Paddle
+            ctx.fillStyle = '#0af';
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+            // Ball
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bricks
+            for (var i = 0; i < bricks.length; i++) {
+                var b = bricks[i];
+                if (!b.alive) continue;
+                ctx.fillStyle = b.color;
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+                ctx.strokeStyle = '#111';
+                ctx.strokeRect(b.x, b.y, b.width, b.height);
+            }
+        }
+
+        function movePaddle(dir) {
+            paddle.x += dir * paddle.speed;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+        }
+
+        // Keyboard controls
+        var keys = {};
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 13) { // A
+                e.preventDefault();
+                launch();
+            } else if (key === 37 || key === 38) { // Left or Up
+                e.preventDefault();
+                movePaddle(-1);
+                if (ball.attached) draw();
+            } else if (key === 39 || key === 40) { // Right or Down
+                e.preventDefault();
+                movePaddle(1);
+                if (ball.attached) draw();
+            }
+            keys[key] = true;
+        };
+
+        document.onkeyup = function(e) {
+            keys[e.keyCode] = false;
+        };
+
+        // Continuous movement
+        setInterval(function() {
+            if (keys[37] || keys[38]) movePaddle(-1);
+            if (keys[39] || keys[40]) movePaddle(1);
+            if (ball.attached) draw();
+        }, 20);
+
+        // Touch controls
+        canvas.ontouchstart = function(e) {
+            e.preventDefault();
+            var rect = canvas.getBoundingClientRect();
+            var x = e.touches[0].clientX - rect.left;
+            if (x < paddle.x + paddle.width / 2) movePaddle(-1);
+            else movePaddle(1);
+        };
+
+        // Desktop mouse
+        canvas.onmousemove = function(e) {
+            var rect = canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            paddle.x = x - paddle.width / 2;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            if (ball.attached) draw();
+        };
+
+        canvas.onclick = function() {
+            launch();
+        };
+
+        init();
+    })();
+    </script>
+</body>
+</html>
