@@ -2,6 +2,8 @@
 
 Web development skills for the Nintendo 3DS browser.
 
+**Official Browser Specs:** https://archive.today/8qs51
+
 **Live:** https://ethanthatonekid.github.io/3ds-web-skills/
 
 ---
