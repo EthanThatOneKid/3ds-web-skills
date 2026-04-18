@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Snake</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+            margin: 0 auto;
+            background: #000;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.8);
+            font-size: 12px;
+        }
+
+        .score { color: #0f0; }
+        .high-score { color: #ff0; }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            padding: 3px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 18px;
+            color: #0f0;
+            text-shadow: 2px 2px #000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span class="score">SCORE: <span id="score">0</span></span>
+        <span class="high-score">BEST: <span id="high-score">0</span></span>
+    </div>
+    <canvas id="canvas" width="400" height="220"></canvas>
+    <div id="message"></div>
+    <div id="hint">
+        <span style="color:#0af">D-Pad</span> Move &bull;
+        <span style="color:#0af">A</span> Pause &bull;
+        <span style="color:#0af">Touch</span> Turn
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var scoreEl = document.getElementById('score');
+        var highScoreEl = document.getElementById('high-score');
+        var msgEl = document.getElementById('message');
+
+        var GRID = 10;
+        var COLS = canvas.width / GRID;
+        var ROWS = canvas.height / GRID;
+
+        var snake = [];
+        var food = { x: 0, y: 0 };
+        var direction = { x: 1, y: 0 };
+        var nextDirection = { x: 1, y: 0 };
+        var score = 0;
+        var highScore = 0;
+        var gameOver = false;
+        var paused = false;
+        var gameInterval = null;
+        var speed = 150;
+
+        function init() {
+            loadHighScore();
+            startGame();
+        }
+
+        function loadHighScore() {
+            var c = document.cookie.split(';');
+            for (var i = 0; i < c.length; i++) {
+                var pair = c[i].split('=');
+                if (pair[0].indexOf('3ds_snake_high') !== -1) {
+                    highScore = parseInt(decodeURIComponent(pair[1]), 10) || 0;
+                    break;
+                }
+            }
+            highScoreEl.innerHTML = highScore;
+        }
+
+        function saveHighScore() {
+            document.cookie = '3ds_snake_high=' + highScore + '; path=/';
+        }
+
+        function startGame() {
+            snake = [
+                { x: 5, y: 10 },
+                { x: 4, y: 10 },
+                { x: 3, y: 10 }
+            ];
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            score = 0;
+            gameOver = false;
+            paused = false;
+            speed = 150;
+            scoreEl.innerHTML = '0';
+            msgEl.style.display = 'none';
+            spawnFood();
+            
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(update, speed);
+        }
+
+        function spawnFood() {
+            var valid = false;
+            while (!valid) {
+                food.x = Math.floor(Math.random() * COLS);
+                food.y = Math.floor(Math.random() * ROWS);
+                valid = true;
+                for (var i = 0; i < snake.length; i++) {
+                    if (snake[i].x === food.x && snake[i].y === food.y) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function update() {
+            if (gameOver || paused) return;
+
+            direction = { x: nextDirection.x, y: nextDirection.y };
+
+            var head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+
+            // Wall collision
+            if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+                endGame();
+                return;
+            }
+
+            // Self collision
+            for (var i = 0; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    endGame();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            // Eat food
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreEl.innerHTML = score;
+                
+                // Increase speed
+                if (speed > 50) speed -= 2;
+                clearInterval(gameInterval);
+                gameInterval = setInterval(update, speed);
+                
+                if (score > highScore) {
+                    highScore = score;
+                    highScoreEl.innerHTML = highScore;
+                    saveHighScore();
+                }
+                
+                spawnFood();
+            } else {
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function draw() {
+            // Clear
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw food
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(food.x * GRID + 1, food.y * GRID + 1, GRID - 2, GRID - 2);
+
+            // Draw snake
+            for (var i = 0; i < snake.length; i++) {
+                ctx.fillStyle = i === 0 ? '#0f0' : '#0a0';
+                ctx.fillRect(snake[i].x * GRID + 1, snake[i].y * GRID + 1, GRID - 2, GRID - 2);
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+            msgEl.innerHTML = 'GAME OVER<br>SCORE: ' + score + '<br>PRESS A TO RESTART';
+            msgEl.style.display = 'block';
+            clearInterval(gameInterval);
+        }
+
+        function togglePause() {
+            if (gameOver) {
+                startGame();
+                return;
+            }
+            paused = !paused;
+            msgEl.innerHTML = paused ? 'PAUSED' : '';
+            msgEl.style.display = paused ? 'block' : 'none';
+        }
+
+        function changeDirection(dx, dy) {
+            if (gameOver || paused) return;
+            if (direction.x === -dx && direction.y === -dy) return;
+            nextDirection = { x: dx, y: dy };
+        }
+
+        // Keyboard controls
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 38) { // Up
+                e.preventDefault();
+                changeDirection(0, -1);
+            } else if (key === 40) { // Down
+                e.preventDefault();
+                changeDirection(0, 1);
+            } else if (key === 37) { // Left
+                e.preventDefault();
+                changeDirection(-1, 0);
+            } else if (key === 39) { // Right
+                e.preventDefault();
+                changeDirection(1, 0);
+            } else if (key === 13) { // A
+                e.preventDefault();
+                togglePause();
+            }
+        };
+
+        // Touch controls - tap to change direction
+        var touchStartX = 0;
+        var touchStartY = 0;
+        
+        canvas.ontouchstart = function(e) {
+            e.preventDefault();
+            var rect = canvas.getBoundingClientRect();
+            touchStartX = e.touches[0].clientX - rect.left;
+            touchStartY = e.touches[0].clientY - rect.top;
+        };
+        
+        canvas.ontouchend = function(e) {
+            if (gameOver) {
+                startGame();
+                return;
+            }
+            var rect = canvas.getBoundingClientRect();
+            var touchEndX = e.changedTouches[0].clientX - rect.left;
+            var touchEndY = e.changedTouches[0].clientY - rect.top;
+            
+            var dx = touchEndX - touchStartX;
+            var dy = touchEndY - touchStartY;
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                changeDirection(dx > 0 ? 1 : -1, 0);
+            } else {
+                changeDirection(0, dy > 0 ? 1 : -1);
+            }
+        };
+
+        // Desktop mouse support
+        canvas.onmousedown = function(e) {
+            if (gameOver) {
+                startGame();
+                return;
+            }
+            var rect = canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            
+            var cx = canvas.width / 2;
+            var cy = canvas.height / 2;
+            
+            if (x < cx) changeDirection(-1, 0);
+            else changeDirection(1, 0);
+        };
+
+        init();
+    })();
+    </script>
+</body>
+</html>
