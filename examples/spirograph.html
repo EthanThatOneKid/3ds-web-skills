@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Spirograph</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 400px;
+            height: 200px;
+        }
+
+        #canvas {
+            display: block;
+            background: #000;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 5px;
+            background: rgba(0,0,0,0.7);
+        }
+
+        .param {
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .param-label { color: #666; display: block; }
+        .param-value { color: #0af; font-weight: bold; }
+
+        #hint {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            padding: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="hint">
+        <span style="color:#0af">A</span> Generate &bull;
+        <span style="color:#0af">D-Pad Left/Right</span> Adjust &bull;
+        <span style="color:#0af">Touch</span> Generate
+    </div>
+    <div id="canvas-container">
+        <canvas id="canvas" width="400" height="200"></canvas>
+        <div id="controls">
+            <div class="param">
+                <span class="param-label">Outer R</span>
+                <span class="param-value" id="outer-val">80</span>
+            </div>
+            <div class="param">
+                <span class="param-label">Inner R</span>
+                <span class="param-value" id="inner-val">30</span>
+            </div>
+            <div class="param">
+                <span class="param-label">Offset</span>
+                <span class="param-value" id="offset-val">30</span>
+            </div>
+            <div class="param">
+                <span class="param-label">Points</span>
+                <span class="param-value" id="points-val">200</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        
+        var outerR = 80;
+        var innerR = 30;
+        var offset = 30;
+        var points = 200;
+        
+        var paramIndex = 0;
+        var params = ['outerR', 'innerR', 'offset', 'points'];
+        var paramRanges = {
+            outerR: { min: 30, max: 120, step: 5 },
+            innerR: { min: 10, max: 80, step: 5 },
+            offset: { min: 5, max: 60, step: 5 },
+            points: { min: 50, max: 400, step: 50 }
+        };
+        
+        var rainbow = [
+            '#f00', '#f80', '#ff0', '#0f0', '#0ff', '#00f', '#80f', '#f08'
+        ];
+        
+        function draw() {
+            // Clear with fade effect
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            var cx = canvas.width / 2;
+            var cy = canvas.height / 2;
+            
+            ctx.lineWidth = 1;
+            
+            for (var i = 0; i < points; i++) {
+                var t = (i / points) * Math.PI * 20;
+                
+                // Epitrochoid equation
+                var x = (outerR + innerR) * Math.cos(t) - offset * Math.cos(((outerR + innerR) / innerR) * t);
+                var y = (outerR + innerR) * Math.sin(t) - offset * Math.sin(((outerR + innerR) / innerR) * t);
+                
+                ctx.strokeStyle = rainbow[i % rainbow.length];
+                ctx.beginPath();
+                ctx.moveTo(cx + x, cy + y);
+                
+                var t2 = ((i + 1) / points) * Math.PI * 20;
+                var x2 = (outerR + innerR) * Math.cos(t2) - offset * Math.cos(((outerR + innerR) / innerR) * t2);
+                var y2 = (outerR + innerR) * Math.sin(t2) - offset * Math.sin(((outerR + innerR) / innerR) * t2);
+                
+                ctx.lineTo(cx + x2, cy + y2);
+                ctx.stroke();
+            }
+        }
+        
+        function generate() {
+            // Random parameters
+            outerR = 40 + Math.floor(Math.random() * 60);
+            innerR = 15 + Math.floor(Math.random() * 40);
+            offset = 10 + Math.floor(Math.random() * 40);
+            points = 100 + Math.floor(Math.random() * 200);
+            
+            updateDisplay();
+            clearAndDraw();
+        }
+        
+        function clearAndDraw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            draw();
+        }
+        
+        function updateDisplay() {
+            document.getElementById('outer-val').innerHTML = outerR;
+            document.getElementById('inner-val').innerHTML = innerR;
+            document.getElementById('offset-val').innerHTML = offset;
+            document.getElementById('points-val').innerHTML = points;
+        }
+        
+        function adjustParam(delta) {
+            var param = params[paramIndex];
+            var range = paramRanges[param];
+            
+            if (param === 'points') {
+                points += delta * range.step;
+                if (points < range.min) points = range.max;
+                if (points > range.max) points = range.min;
+            } else {
+                if (param === 'outerR') outerR += delta * range.step;
+                if (param === 'innerR') innerR += delta * range.step;
+                if (param === 'offset') offset += delta * range.step;
+                
+                if (outerR < range.min) outerR = range.max;
+                if (outerR > range.max) outerR = range.min;
+                if (innerR < 10) innerR = 70;
+                if (innerR > 70) innerR = 10;
+                if (offset < 5) offset = 55;
+                if (offset > 55) offset = 5;
+            }
+            
+            updateDisplay();
+            clearAndDraw();
+        }
+        
+        // D-Pad controls
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 13 || key === 32) { // A or Space
+                e.preventDefault();
+                generate();
+            } else if (key === 37) { // Left
+                e.preventDefault();
+                adjustParam(-1);
+            } else if (key === 39) { // Right
+                e.preventDefault();
+                adjustParam(1);
+            }
+        };
+        
+        // Touch to generate
+        canvas.ontouchstart = function(e) {
+            e.preventDefault();
+            generate();
+        };
+        
+        // Desktop click
+        canvas.onclick = function() {
+            generate();
+        };
+        
+        // Initialize
+        clearAndDraw();
+        
+        // Auto animate slowly
+        setInterval(function() {
+            draw();
+        }, 500);
+        
+        updateDisplay();
+    })();
+    </script>
+</body>
+</html>
