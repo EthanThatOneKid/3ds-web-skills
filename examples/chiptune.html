@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Chiptune</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #visualizer {
+            display: block;
+            background: #000;
+        }
+
+        #track-list {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            font-size: 11px;
+        }
+
+        .track {
+            padding: 4px 8px;
+            margin: 2px 0;
+            background: #222;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .track.active {
+            background: #0a0;
+            color: #fff;
+        }
+
+        #info {
+            position: absolute;
+            top: 5px;
+            left: 10px;
+            font-size: 12px;
+            color: #0f0;
+        }
+
+        #status {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            font-size: 10px;
+            color: #666;
+        }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 9px;
+            color: #555;
+            padding: 3px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        #volume {
+            position: absolute;
+            top: 25px;
+            right: 10px;
+            font-size: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="visualizer" width="400" height="60"></canvas>
+    <div id="info">CHIPTUNE PLAYER</div>
+    <div id="status">NO AUDIO</div>
+    <div id="volume">VOL: <span id="vol-level">50</span>%</div>
+    <div id="track-list">
+        <div class="track active" data-index="0">1. ARPEGGIO RUN</div>
+        <div class="track" data-index="1">2. BASS LINE</div>
+        <div class="track" data-index="2">3. MELODY</div>
+    </div>
+    <div id="hint">
+        <span style="color:#0af">A</span> Play/Pause &bull;
+        <span style="color:#0af">D-Pad Up/Down</span> Volume &bull;
+        <span style="color:#0af">D-Pad Left/Right</span> Track
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var visualizer = document.getElementById('visualizer');
+        var vctx = visualizer.getContext('2d');
+        var statusEl = document.getElementById('status');
+        var volLevel = document.getElementById('vol-level');
+        var trackEls = document.querySelectorAll('.track');
+
+        var audioContext = null;
+        var oscillator = null;
+        var gainNode = null;
+        var audioSupported = false;
+
+        var currentTrack = 0;
+        var isPlaying = false;
+        var volume = 0.5;
+        var animationId = null;
+
+        var tracks = [
+            {
+                name: 'Arpeggio Run',
+                notes: [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 196.00],
+                tempo: 150
+            },
+            {
+                name: 'Bass Line',
+                notes: [65.41, 82.41, 98.00, 65.41, 73.42, 87.31, 65.41, 73.42],
+                tempo: 120
+            },
+            {
+                name: 'Melody',
+                notes: [440, 392, 349.23, 392, 440, 493.88, 523.25, 493.88, 440, 392, 349.23, 329.63],
+                tempo: 180
+            }
+        ];
+
+        var currentNoteIndex = 0;
+        var noteInterval = null;
+        var visualBars = [];
+        for (var i = 0; i < 20; i++) {
+            visualBars.push(Math.random() * 40);
+        }
+
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.connect(audioContext.destination);
+                gainNode.gain.value = volume;
+                audioSupported = true;
+                statusEl.innerHTML = 'READY';
+                statusEl.style.color = '#0f0';
+            } catch (e) {
+                audioSupported = false;
+                statusEl.innerHTML = 'NO AUDIO';
+                statusEl.style.color = '#f00';
+            }
+        }
+
+        function playNote(freq) {
+            if (!audioSupported || !audioContext) return;
+
+            try {
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                }
+
+                oscillator = audioContext.createOscillator();
+                oscillator.type = 'square';
+                oscillator.frequency.value = freq;
+                oscillator.connect(gainNode);
+                oscillator.start();
+
+                // Short envelope
+                setTimeout(function() {
+                    if (oscillator) {
+                        oscillator.stop();
+                    }
+                }, 100);
+            } catch (e) {}
+        }
+
+        function playTrack() {
+            if (!audioSupported) return;
+
+            var track = tracks[currentTrack];
+            var interval = 60000 / track.tempo;
+
+            playNote(track.notes[0]);
+            currentNoteIndex = 0;
+
+            if (noteInterval) clearInterval(noteInterval);
+            noteInterval = setInterval(function() {
+                if (!isPlaying) return;
+                currentNoteIndex = (currentNoteIndex + 1) % track.notes.length;
+                playNote(track.notes[currentNoteIndex]);
+            }, interval);
+        }
+
+        function stopTrack() {
+            if (noteInterval) clearInterval(noteInterval);
+            if (oscillator) {
+                try { oscillator.stop(); } catch (e) {}
+            }
+        }
+
+        function togglePlay() {
+            if (!audioSupported) {
+                initAudio();
+            }
+
+            isPlaying = !isPlaying;
+            
+            if (isPlaying) {
+                playTrack();
+                statusEl.innerHTML = 'PLAYING';
+                statusEl.style.color = '#0f0';
+                animate();
+            } else {
+                stopTrack();
+                statusEl.innerHTML = 'PAUSED';
+                statusEl.style.color = '#ff0';
+            }
+        }
+
+        function setTrack(idx) {
+            currentTrack = idx;
+            for (var i = 0; i < trackEls.length; i++) {
+                trackEls[i].classList.remove('active');
+            }
+            trackEls[idx].classList.add('active');
+
+            if (isPlaying) {
+                stopTrack();
+                playTrack();
+            }
+        }
+
+        function setVolume(delta) {
+            volume = Math.max(0, Math.min(1, volume + delta));
+            volLevel.innerHTML = Math.round(volume * 100);
+            if (gainNode) {
+                gainNode.gain.value = volume;
+            }
+        }
+
+        function animate() {
+            if (!isPlaying) {
+                // Slow decay
+                for (var i = 0; i < visualBars.length; i++) {
+                    visualBars[i] = Math.max(5, visualBars[i] * 0.95);
+                }
+            } else {
+                // Pulse to music
+                var track = tracks[currentTrack];
+                var beat = (currentNoteIndex % track.notes.length) / track.notes.length;
+                
+                for (var i = 0; i < visualBars.length; i++) {
+                    var target = 10 + Math.sin(Date.now() / 100 + i * 0.5) * 20 + Math.random() * 10;
+                    visualBars[i] = visualBars[i] * 0.7 + target * 0.3;
+                }
+            }
+
+            // Draw visualizer
+            vctx.fillStyle = '#000';
+            vctx.fillRect(0, 0, 400, 60);
+
+            var barWidth = 400 / visualBars.length;
+            
+            for (var i = 0; i < visualBars.length; i++) {
+                var hue = (i / visualBars.length) * 60 + 120;
+                vctx.fillStyle = 'hsl(' + hue + ', 100%, 50%)';
+                vctx.fillRect(i * barWidth + 1, 60 - visualBars[i], barWidth - 2, visualBars[i]);
+            }
+
+            if (isPlaying) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // Keyboard controls
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            
+            if (key === 13) { // A
+                e.preventDefault();
+                togglePlay();
+            } else if (key === 38) { // Up
+                e.preventDefault();
+                setVolume(0.1);
+            } else if (key === 40) { // Down
+                e.preventDefault();
+                setVolume(-0.1);
+            } else if (key === 37) { // Left
+                e.preventDefault();
+                setTrack((currentTrack - 1 + tracks.length) % tracks.length);
+            } else if (key === 39) { // Right
+                e.preventDefault();
+                setTrack((currentTrack + 1) % tracks.length);
+            }
+        };
+
+        // Touch/click on track list
+        for (var i = 0; i < trackEls.length; i++) {
+            trackEls[i].ontouchstart = function(e) {
+                e.preventDefault();
+                var idx = parseInt(this.getAttribute('data-index'), 10);
+                setTrack(idx);
+                if (!isPlaying) togglePlay();
+            };
+            trackEls[i].onclick = function() {
+                var idx = parseInt(this.getAttribute('data-index'), 10);
+                setTrack(idx);
+            };
+        }
+
+        // Initialize
+        initAudio();
+        animate();
+    })();
+    </script>
+</body>
+</html>
