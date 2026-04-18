@@ -51,7 +51,7 @@ Developing for the Nintendo 3DS browser requires a "retro-forward" mindset. Beca
 | **Image Formats** | MPO, GIF, JPEG, PNG, BMP, ICO | BMP, GIF, ICO, JPEG, PNG, **SVG**, MPO, JPEG (preview only) |
 | **Plugins** | None | None |
 
-> ⚠️ **Chiptune audio note:** Web Audio API is not available. On New 3DS, use pre-encoded AAC or MP3 files via `<audio>` or the `Audio()` API. On Original 3DS, audio playback in the browser is not supported.
+> ⚠️ **Audio note:** Web Audio API (oscillators, nodes, etc.) is not available on either model. On New 3DS, use pre-encoded AAC or MP3 files via `<audio>` or the `Audio()` API. On Original 3DS, audio playback in the browser is not officially supported.
 
 ---
 
