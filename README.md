@@ -6,4 +6,7 @@ Web development skills for the Nintendo 3DS browser.
 
 ## Examples
 
-- [Button Demo](./examples/button-demo/) — Interactive 3DS button code visualizer
+- [debug.html](./examples/debug.html)
+- [flappy-bird.html](./examples/flappy-bird.html)
+- [snake.html](./examples/snake.html)
+- [todo.html](./examples/todo.html)

@@ -31,7 +31,7 @@ The 3DS browser is highly restrictive. To ensure stability, adhere to the follow
     *   *Unsupported:* `let`, `const`, arrow functions, template literals, Promises, `async/await`, or Classes.
 *   **CSS Standards:** Primarily **CSS 2.1**. Limited support for CSS3 (requires `-webkit-` prefixes).
 *   **Networking:** No WebSockets. Use `XMLHttpRequest` (XHR) with long-polling for "real-time" data.
-*   **Storage:** `localStorage` is volatile and often cleared on power-off. Use server-side sessions or cookies for persistence.
+*   **Storage:** `localStorage` is volatile and often cleared on power-off. For lightweight client-side persistence that survives reboots, use **Cookies**. For complex or sensitive data, use server-side databases.
 *   **Graphics:** No WebGL support. Canvas is limited to 2D context only.
 *   **Concurrency:** No Web Workers; all JavaScript execution is single-threaded and blocks the UI.
 *   **Media:** Poor codec support (Limited audio/AAC; no H.264 video in-browser).
@@ -94,7 +94,7 @@ document.addEventListener('keyup', function(e) { handleKey(e, false); }, false);
 
 ## Development Philosophy & Best Practices
 
-1.  **Server-Side Heavy Architecture:** Treat the 3DS as a thin client. Use Node.js, PHP, or Python to handle logic and render HTML. Default to full-page submissions for state changes.
+1.  **Context-Driven Architecture:** Treat the 3DS as a specialized client. While Server-Side Rendering (SSR) is recommended for complex social apps or cross-device state, client-side Legacy JS is a first-class citizen for offline-first tools, games, and UI-heavy experiences.
 2.  **Memory Management:** Large images or multiple `<canvas>` elements will trigger "Page too large" errors. Keep assets small and optimize memory usage.
 3.  **UI/UX for Dual Screens:** Design for a vertical flow. Remember the bottom screen is the only touch-sensitive area.
 4.  **Graceful Degradation:** Use feature detection. If a script fails due to ES3 incompatibility, the site should remain navigable via standard HTML links.
@@ -123,7 +123,7 @@ document.addEventListener('keyup', function(e) { handleKey(e, false); }, false);
 When building a 3DS web project:
 
 1.  **Identify the Experience:** Simple page, interactive app, or 2D game.
-2.  **Choose a Stack:** Recommend a server-side stack (Node, PHP, Python) for robust state handling.
+2.  **Choose a Stack:** Select your architecture based on persistence needs. Use client-side JS + Cookies for local tools; use a server-side stack (Node, PHP, Python) for shared state or heavy data processing.
 3.  **Input Setup:** Use keyboard events for D-Pad/A input + touch events for the touchscreen.
 4.  **Verification:** Test and verify on actual hardware or an accurate emulator.
 

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Todo List</title>
+    <style>
+        /* CSS 2.1 Compatible Styles for 3DS NetFront NX */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #eee;
+            font-family: -apple-system, sans-serif;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Prevent default browser scroll */
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative;
+        }
+
+        /* Top Screen Area (roughly 240px tall) */
+        #list-container {
+            height: 180px;
+            overflow-y: auto;
+            border-bottom: 1px solid #333;
+            background: #181818;
+        }
+
+        .todo-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #222;
+            font-size: 16px;
+            display: block;
+            position: relative;
+            background: #181818;
+        }
+
+        .todo-item.selected {
+            background: #0056b3;
+            color: #fff;
+        }
+
+        .todo-item.done {
+            color: #666;
+            text-decoration: line-through;
+        }
+
+        .todo-item.selected.done {
+            color: #aaa;
+        }
+
+        /* Bottom Screen Area / Input area */
+        #input-area {
+            padding: 10px;
+            background: #222;
+            height: 60px;
+        }
+
+        #todo-input {
+            width: 100%;
+            padding: 8px;
+            background: #000;
+            border: 1px solid #444;
+            color: #fff;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: #000;
+            font-size: 12px;
+            color: #888;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .accent { color: #00a2ff; font-weight: bold; }
+
+        /* Custom Scrollbar for 3DS (standard doesn't look great) */
+        #list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #list-container::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="list-container">
+            <div id="todo-list">
+                <!-- Items populated by JS -->
+            </div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="todo-input" placeholder="Add new task..." autocomplete="off">
+        </div>
+
+        <div id="controls-hint">
+            <span class="accent">D-Pad</span> Navigate &bull; 
+            <span class="accent">A</span> Toggle &bull; 
+            <span class="accent">Touch (Bottom)</span> Input
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // ES3 Compatible JavaScript
+        (function() {
+            var input = document.getElementById('todo-input');
+            var list = document.getElementById('todo-list');
+            var container = document.getElementById('list-container');
+            
+            var todos = [];
+            var selectedIndex = -1;
+
+            // Cookie Utilities (ES3)
+            function setCookie(name, value, days) {
+                var expires = "";
+                if (days) {
+                    var date = new Date();
+                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                    expires = "; expires=" + date.toGMTString();
+                }
+                document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/";
+            }
+
+            function getCookie(name) {
+                var nameEQ = name + "=";
+                var ca = document.cookie.split(';');
+                for (var i = 0; i < ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+                }
+                return null;
+            }
+
+            // Load logic: Check LocalStorage first, then Cookies
+            function loadTodos() {
+                var data = null;
+                var source = "None";
+
+                try {
+                    data = localStorage.getItem('3ds_todos');
+                    if (data) source = "Local";
+                } catch (e) {}
+
+                if (!data) {
+                    try {
+                        data = getCookie('3ds_todos');
+                        if (data) source = "Cookie";
+                    } catch (e) {}
+                }
+
+                if (data) {
+                    try {
+                        todos = JSON.parse(data);
+                    } catch (e) {
+                        todos = [];
+                    }
+                } else {
+                    // Default items
+                    todos = [
+                        { text: 'Play Flappy Bird', done: false },
+                        { text: 'Complete 3DS Tutorial', done: true },
+                        { text: 'Learn ES3 Syntax', done: false }
+                    ];
+                    source = "Default";
+                }
+
+                // Update UI hint with storage status
+                var hint = document.getElementById('controls-hint');
+                hint.innerHTML += ' <br><span style="font-size:10px; color:#555">Storage: ' + source + '</span>';
+            }
+
+            function saveTodos() {
+                var data = JSON.stringify(todos);
+                // Save to LocalStorage
+                try {
+                    localStorage.setItem('3ds_todos', data);
+                } catch (e) {}
+                
+                // Save to Cookie (Backup for power-off as per SKILL.md)
+                try {
+                    setCookie('3ds_todos', data, 365);
+                } catch (e) {}
+            }
+
+            function render() {
+                var html = '';
+                for (var i = 0; i < todos.length; i++) {
+                    var item = todos[i];
+                    var classes = 'todo-item' + 
+                                 (i === selectedIndex ? ' selected' : '') + 
+                                 (item.done ? ' done' : '');
+                    
+                    html += '<div class="' + classes + '" id="item-' + i + '">' + 
+                            (item.done ? '[x] ' : '[ ] ') + item.text + 
+                            '</div>';
+                }
+                list.innerHTML = html;
+
+                // Ensure selected item is visible
+                if (selectedIndex !== -1) {
+                    var el = document.getElementById('item-' + selectedIndex);
+                    if (el) {
+                        var containerRect = container.getBoundingClientRect();
+                        var elRect = el.getBoundingClientRect();
+                        if (elRect.bottom > containerRect.bottom) {
+                            container.scrollTop += (elRect.bottom - containerRect.bottom);
+                        } else if (elRect.top < containerRect.top) {
+                            container.scrollTop -= (containerRect.top - elRect.top);
+                        }
+                    }
+                }
+            }
+
+            function addTodo(text) {
+                if (!text) return;
+                todos.push({ text: text, done: false });
+                input.value = '';
+                saveTodos();
+                render();
+            }
+
+            function toggleTodo(index) {
+                if (index >= 0 && index < todos.length) {
+                    todos[index].done = !todos[index].done;
+                    saveTodos();
+                    render();
+                }
+            }
+
+            function removeTodo(index) {
+                if (index >= 0 && index < todos.length) {
+                    todos.splice(index, 1);
+                    if (selectedIndex >= todos.length) selectedIndex = todos.length - 1;
+                    saveTodos();
+                    render();
+                }
+            }
+
+            // Input handling
+            input.onkeydown = function(e) {
+                if (e.keyCode === 13) { // Enter/A
+                    addTodo(input.value);
+                    input.blur();
+                }
+            };
+
+            // Physical Button Handling
+            document.onkeydown = function(e) {
+                // Don't intercept if typing in input
+                if (document.activeElement === input) return;
+
+                var key = e.keyCode;
+                if (key === 38) { // Up
+                    e.preventDefault();
+                    if (selectedIndex > 0) selectedIndex--;
+                    else if (todos.length > 0) selectedIndex = todos.length - 1;
+                    render();
+                } else if (key === 40) { // Down
+                    e.preventDefault();
+                    if (selectedIndex < todos.length - 1) selectedIndex++;
+                    else if (todos.length > 0) selectedIndex = 0;
+                    render();
+                } else if (key === 13) { // A / Enter
+                    e.preventDefault();
+                    if (selectedIndex !== -1) {
+                        toggleTodo(selectedIndex);
+                    }
+                }
+            };
+
+            // Touch support
+            list.onclick = function(e) {
+                var target = e.target;
+                if (target && target.className.indexOf('todo-item') !== -1) {
+                    var id = target.id.split('-')[1];
+                    var idx = parseInt(id, 10);
+                    selectedIndex = idx;
+                    toggleTodo(idx);
+                }
+            };
+
+            // Initialization
+            loadTodos();
+            if (todos.length > 0 && selectedIndex === -1) selectedIndex = 0;
+            render();
+
+        })();
+    </script>
+</body>
+</html>
