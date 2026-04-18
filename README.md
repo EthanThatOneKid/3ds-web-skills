@@ -12,3 +12,4 @@ Web development skills for the Nintendo 3DS browser.
 - [todo.html](./examples/todo.html)
 - [concentration.html](./examples/concentration.html)
 - [adventure.html](./examples/adventure.html)
+- [pizza.html](./examples/pizza.html)

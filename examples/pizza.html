@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Krusty Krab Pizza Demake</title>
+    <style>
+        /* CSS 2.1 Compatible */
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            background: #000; 
+            color: #fff; 
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+        #canvas { display: block; background: #222; margin: 0 auto; }
+        #subtitles {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 0;
+            color: #ff0; /* Yellow subtitles */
+            text-shadow: 1px 1px 0 #000;
+        }
+        #controls-ui {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            font-size: 10px;
+            color: #888;
+            text-align: center;
+            padding: 5px;
+        }
+        .accent { color: #00a2ff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="240"></canvas>
+    <div id="subtitles"></div>
+    <div id="controls-ui">
+        <span class="accent">A / Touch</span> Next &bull; 
+        <span class="accent">D-Pad</span> mode: <span id="playback-mode">AUTO</span>
+    </div>
+
+<script type="text/javascript">
+(function() {
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    var subEl = document.getElementById('subtitles');
+    var modeEl = document.getElementById('playback-mode');
+    
+    var state = {
+        scene: 0,
+        dialog: 0,
+        mode: 'AUTO',
+        lastUpdate: Date.now()
+    };
+
+    // Abstract Character Drawing Utilities
+    function drawSpongebob(ctx, x, y, scale) {
+        ctx.fillStyle = '#ff0'; // Yellow
+        ctx.fillRect(x - 20*scale, y - 30*scale, 40*scale, 60*scale);
+        ctx.fillStyle = '#fff'; // Eyes
+        ctx.fillRect(x - 12*scale, y - 20*scale, 8*scale, 8*scale);
+        ctx.fillRect(x + 4*scale, y - 20*scale, 8*scale, 8*scale);
+        ctx.fillStyle = '#000'; // Pupil
+        ctx.fillRect(x - 10*scale, y - 18*scale, 4*scale, 4*scale);
+        ctx.fillRect(x + 6*scale, y - 18*scale, 4*scale, 4*scale);
+        ctx.fillStyle = '#f00'; // Tie
+        ctx.fillRect(x - 3*scale, y + 15*scale, 6*scale, 10*scale);
+    }
+
+    function drawSquidward(ctx, x, y, scale) {
+        ctx.fillStyle = '#4cc'; // Teal
+        ctx.beginPath();
+        ctx.arc(x, y - 15*scale, 18*scale, 0, Math.PI*2); // Head
+        ctx.fill();
+        ctx.fillRect(x - 10*scale, y, 20*scale, 40*scale); // Body
+        ctx.fillStyle = '#000'; // Eyes
+        ctx.fillRect(x - 10*scale, y - 22*scale, 4*scale, 4*scale);
+        ctx.fillRect(x + 6*scale, y - 22*scale, 4*scale, 4*scale);
+        ctx.fillStyle = '#2aa'; // Nose
+        ctx.fillRect(x - 4*scale, y - 15*scale, 8*scale, 15*scale);
+    }
+
+    function drawKrabs(ctx, x, y, scale) {
+        ctx.fillStyle = '#f33'; // Red
+        ctx.fillRect(x - 25*scale, y - 20*scale, 50*scale, 40*scale);
+        ctx.fillStyle = '#fff'; // Eye stalks
+        ctx.fillRect(x - 15*scale, y - 40*scale, 6*scale, 20*scale);
+        ctx.fillRect(x + 9*scale, y - 40*scale, 6*scale, 20*scale);
+    }
+
+    function drawPizzaBox(ctx, x, y, scale) {
+        ctx.fillStyle = '#eee';
+        ctx.fillRect(x - 15*scale, y - 5*scale, 30*scale, 10*scale);
+        ctx.strokeStyle = '#999';
+        ctx.strokeRect(x - 15*scale, y - 5*scale, 30*scale, 10*scale);
+    }
+    
+    function drawRock(ctx, x, y, scale) {
+        ctx.fillStyle = '#666';
+        ctx.beginPath(); ctx.arc(x, y, 60*scale, 0, Math.PI*2); ctx.fill();
+    }
+
+    var scenes = [
+        {
+            title: "Closing Time",
+            bg: "#45a",
+            render: function(ctx) {
+                drawSquidward(ctx, 100, 150, 1);
+                drawSpongebob(ctx, 300, 150, 1);
+            },
+            dialogs: [
+                { s: "SQUIDWARD", t: "Hurry up with those chairs!" },
+                { s: "SPONGEBOB", t: "Ready to close! 1, 2, 3...!" },
+                { s: "SQUIDWARD", t: "Done! Let's go home." }
+            ]
+        },
+        {
+            title: "The Phone Call",
+            bg: "#633",
+            render: function(ctx) {
+                drawKrabs(ctx, 200, 140, 1);
+                drawSquidward(ctx, 320, 160, 0.8);
+            },
+            dialogs: [
+                { s: "PHONE", t: "Ring! Ring!" },
+                { s: "MR. KRABS", t: "Krusty Krab? Delivery? We make deliveries!" },
+                { s: "SQUIDWARD", t: "We don't make deliveries." },
+                { s: "MR. KRABS", t: "We do today! Squidward, SpongeBob, get moving!" }
+            ]
+        },
+        {
+            title: "The Boat",
+            bg: "#888",
+            render: function(ctx) {
+                ctx.fillStyle = '#555'; ctx.fillRect(0, 180, 400, 60); // Road
+                ctx.fillStyle = '#f00'; ctx.fillRect(140, 140, 120, 40); // Boat
+                drawSpongebob(ctx, 200, 145, 0.5);
+                drawSquidward(ctx, 240, 145, 0.5);
+                drawPizzaBox(ctx, 160, 160, 1);
+            },
+            dialogs: [
+                { s: "SPONGEBOB", t: "I'm driving! The Krusty Krab Pizza!" },
+                { s: "SQUIDWARD", t: "Just put it in reverse, SpongeBob." },
+                { s: "SPONGEBOB", t: "Reverse? Backing up! Backing up!" },
+                { s: "SOUND", t: "CRASH! CLANK!" }
+            ]
+        },
+        {
+            title: "Lost in the Desert",
+            bg: "#ed3",
+            render: function(ctx) {
+                ctx.fillStyle = '#daa'; ctx.fillRect(0, 150, 400, 90); // Sand
+                drawSquidward(ctx, 180, 180, 0.8);
+                drawSpongebob(ctx, 220, 180, 0.8);
+                drawPizzaBox(ctx, 220, 200, 0.6);
+            },
+            dialogs: [
+                { s: "SQUIDWARD", t: "We're stranded. In the middle of nowhere." },
+                { s: "SPONGEBOB", t: "Don't worry, Squidward! The pioneers used to hitch rides on these!" }
+            ]
+        },
+        {
+            title: "The Pioneer Technique",
+            bg: "#ed3",
+            render: function(ctx) {
+                ctx.fillStyle = '#daa'; ctx.fillRect(0, 150, 400, 90);
+                drawSpongebob(ctx, 200, 190, 1);
+                // Butt wiggle representation
+                var off = Math.sin(Date.now() / 100) * 5;
+                drawSpongebob(ctx, 200 + off, 190, 1);
+            },
+            dialogs: [
+                { s: "SPONGEBOB", t: "The Krusty Krab Pizza... is the pizza..." },
+                { s: "SPONGEBOB", t: "For you and me! KRRRUUSTY KRRRAAB PIZZA!" },
+                { s: "SQUIDWARD", t: "Will you stop that?!" }
+            ]
+        },
+        {
+            title: "The Rock",
+            bg: "#333",
+            render: function(ctx) {
+                drawRock(ctx, 200, 180, 1);
+                drawSpongebob(ctx, 200, 120, 0.6);
+            },
+            dialogs: [
+                { s: "SPONGEBOB", t: "It's not just a boulder... it's a rock!" },
+                { s: "SQUIDWARD", t: "It's just a rock." },
+                { s: "SPONGEBOB", t: "The pioneers used to ride these babies for miles!" }
+            ]
+        },
+        {
+            title: "The Customer",
+            bg: "#9cf",
+            render: function(ctx) {
+                ctx.fillStyle = '#6c6'; ctx.fillRect(0, 200, 400, 40); // Lawn
+                ctx.fillStyle = '#743'; ctx.fillRect(250, 50, 100, 150); // House
+                drawSpongebob(ctx, 150, 180, 0.8);
+                drawPizzaBox(ctx, 150, 200, 0.6);
+            },
+            dialogs: [
+                { s: "SPONGEBOB", t: "Hello! Krusty Krab Pizza!" },
+                { s: "CUSTOMER", t: "Where's my drink? My Diet Dr. Kelp?" },
+                { s: "SPONGEBOB", t: "B-but... I didn't..." },
+                { s: "CUSTOMER", t: "How am I supposed to eat this without my drink?!" }
+            ]
+        },
+        {
+            title: "The Resolution",
+            bg: "#9cf",
+            render: function(ctx) {
+                drawSquidward(ctx, 200, 180, 1);
+                drawPizzaBox(ctx, 300, 120, 1); // Flying pizza
+            },
+            dialogs: [
+                { s: "SQUIDWARD", t: "Here! Take your pizza! AND YOUR DRINK!" },
+                { s: "SPONGEBOB", t: "Squidward... you saved it." },
+                { s: "SQUIDWARD", t: "Let's go, SpongeBob. Back to work." }
+            ]
+        }
+    ];
+
+    function render() {
+        var s = scenes[state.scene];
+        var d = s.dialogs[state.dialog];
+
+        // Background
+        ctx.fillStyle = s.bg;
+        ctx.fillRect(0, 0, 400, 240);
+
+        // Content
+        s.render(ctx);
+
+        // Titles & Dialogue
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(0, 0, 400, 30);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.fillText("PIZZA DELIVERY: " + s.title, 10, 20);
+
+        subEl.innerHTML = '<span style="color:#aaa">' + d.s + ':</span> ' + d.t;
+    }
+
+    function next() {
+        var s = scenes[state.scene];
+        state.dialog++;
+        if (state.dialog >= s.dialogs.length) {
+            state.dialog = 0;
+            state.scene++;
+            if (state.scene >= scenes.length) state.scene = 0;
+        }
+        render();
+    }
+
+    // Controls
+    document.onkeydown = function(e) {
+        var k = e.keyCode;
+        if (k === 13) { // A
+            state.mode = 'MANUAL';
+            next();
+        } else if (k === 37 || k === 38 || k === 39 || k === 40) { // D-Pad
+            state.mode = (state.mode === 'AUTO' ? 'MANUAL' : 'AUTO');
+            modeEl.innerHTML = state.mode;
+        }
+        render();
+    };
+
+    canvas.onclick = function() {
+        state.mode = 'MANUAL';
+        next();
+    };
+
+    // Main Loop
+    setInterval(function() {
+        if (state.mode === 'AUTO') {
+            var now = Date.now();
+            if (now - state.lastUpdate > 3000) {
+                next();
+                state.lastUpdate = now;
+            }
+        }
+        render();
+    }, 50);
+
+    render();
+})();
+</script>
+</body>
+</html>
