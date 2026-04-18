@@ -5,37 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3DS Krusty Krab Pizza Demake</title>
     <style>
-        /* CSS 2.1 Compatible */
         * { box-sizing: border-box; }
-        body { 
-            margin: 0; 
-            background: #000; 
-            color: #fff; 
-            font-family: sans-serif;
-            width: 400px;
-            height: 240px;
-            overflow: hidden;
+        body {
+            margin: 0; background: #000; color: #fff;
+            font-family: sans-serif; width: 400px; height: 240px; overflow: hidden;
         }
-        #canvas { display: block; background: #222; margin: 0 auto; }
+        #canvas { display: block; background: #1a1a1a; margin: 0 auto; }
         #subtitles {
-            position: absolute;
-            bottom: 30px;
-            width: 100%;
-            text-align: center;
-            font-size: 14px;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 0;
-            color: #ff0; /* Yellow subtitles */
-            text-shadow: 1px 1px 0 #000;
+            position: absolute; bottom: 35px; width: 100%; text-align: center;
+            font-size: 12px; background: rgba(0,0,0,0.85); padding: 5px 8px;
+            color: #ff0; text-shadow: 1px 1px 0 #000; min-height: 38px;
         }
         #controls-ui {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            font-size: 10px;
-            color: #888;
-            text-align: center;
-            padding: 5px;
+            position: absolute; bottom: 0; width: 100%; font-size: 10px;
+            color: #ccc; text-align: center; padding: 4px; background: #222;
         }
         .accent { color: #00a2ff; font-weight: bold; }
     </style>
@@ -44,8 +27,9 @@
     <canvas id="canvas" width="400" height="240"></canvas>
     <div id="subtitles"></div>
     <div id="controls-ui">
-        <span class="accent">A / Touch</span> Next &bull; 
-        <span class="accent">D-Pad</span> mode: <span id="playback-mode">AUTO</span>
+        <span id="scene-info">SCENE: 1/20</span> &bull;
+        <span class="accent">A/Touch</span> Next &bull;
+        <span class="accent">Mode:</span> <span id="playback-mode">AUTO</span>
     </div>
 
 <script type="text/javascript">
@@ -54,242 +38,430 @@
     var ctx = canvas.getContext('2d');
     var subEl = document.getElementById('subtitles');
     var modeEl = document.getElementById('playback-mode');
-    
+    var infoEl = document.getElementById('scene-info');
+
     var state = {
         scene: 0,
         dialog: 0,
         mode: 'AUTO',
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
+        frame: 0
     };
 
-    // Abstract Character Drawing Utilities
-    function drawSpongebob(ctx, x, y, scale) {
-        ctx.fillStyle = '#ff0'; // Yellow
-        ctx.fillRect(x - 20*scale, y - 30*scale, 40*scale, 60*scale);
-        ctx.fillStyle = '#fff'; // Eyes
-        ctx.fillRect(x - 12*scale, y - 20*scale, 8*scale, 8*scale);
-        ctx.fillRect(x + 4*scale, y - 20*scale, 8*scale, 8*scale);
-        ctx.fillStyle = '#000'; // Pupil
-        ctx.fillRect(x - 10*scale, y - 18*scale, 4*scale, 4*scale);
-        ctx.fillRect(x + 6*scale, y - 18*scale, 4*scale, 4*scale);
-        ctx.fillStyle = '#f00'; // Tie
-        ctx.fillRect(x - 3*scale, y + 15*scale, 6*scale, 10*scale);
+    function setCookie(n, v) {
+        var d = new Date(); d.setTime(d.getTime() + (365*24*60*60*1000));
+        document.cookie = n + "=" + encodeURIComponent(v) + "; expires=" + d.toGMTString() + "; path=/";
+    }
+    function getCookie(n) {
+        var ne = n + "="; var ca = document.cookie.split(';');
+        for (var i=0; i<ca.length; i++) {
+            var c = ca[i]; while (c.charAt(0) == ' ') c = c.substring(1);
+            if (c.indexOf(ne) == 0) {
+                try { return decodeURIComponent(c.substring(ne.length)); } catch (e) { return c.substring(ne.length); }
+            }
+        }
+        return null;
     }
 
-    function drawSquidward(ctx, x, y, scale) {
-        ctx.fillStyle = '#4cc'; // Teal
-        ctx.beginPath();
-        ctx.arc(x, y - 15*scale, 18*scale, 0, Math.PI*2); // Head
-        ctx.fill();
-        ctx.fillRect(x - 10*scale, y, 20*scale, 40*scale); // Body
-        ctx.fillStyle = '#000'; // Eyes
-        ctx.fillRect(x - 10*scale, y - 22*scale, 4*scale, 4*scale);
-        ctx.fillRect(x + 6*scale, y - 22*scale, 4*scale, 4*scale);
-        ctx.fillStyle = '#2aa'; // Nose
-        ctx.fillRect(x - 4*scale, y - 15*scale, 8*scale, 15*scale);
+    function drawSB(ctx, x, y, s, anim) {
+        ctx.save();
+        ctx.translate(x, y);
+        if (anim === 'wiggle') ctx.rotate(Math.sin(state.frame*0.2)*0.12);
+        if (anim === 'inflate') s *= (1 + Math.sin(state.frame*0.12)*0.45);
+        ctx.fillStyle = '#ff0'; ctx.fillRect(-20*s, -30*s, 40*s, 60*s);
+        ctx.fillStyle = '#fff'; ctx.fillRect(-12*s, -20*s, 8*s, 8*s); ctx.fillRect(4*s, -20*s, 8*s, 8*s);
+        ctx.fillStyle = '#000'; ctx.fillRect(-10*s, -18*s, 4*s, 4*s); ctx.fillRect(6*s, -18*s, 4*s, 4*s);
+        ctx.fillStyle = '#f00'; ctx.fillRect(-3*s, 15*s, 6*s, 10*s);
+        ctx.restore();
     }
 
-    function drawKrabs(ctx, x, y, scale) {
-        ctx.fillStyle = '#f33'; // Red
-        ctx.fillRect(x - 25*scale, y - 20*scale, 50*scale, 40*scale);
-        ctx.fillStyle = '#fff'; // Eye stalks
-        ctx.fillRect(x - 15*scale, y - 40*scale, 6*scale, 20*scale);
-        ctx.fillRect(x + 9*scale, y - 40*scale, 6*scale, 20*scale);
+    function drawSQ(ctx, x, y, s, anim) {
+        ctx.save(); ctx.translate(x, y);
+        if (anim === 'shiver') ctx.translate((state.frame%3)-1, (state.frame%5)-2);
+        ctx.fillStyle = '#4cc'; ctx.beginPath(); ctx.arc(0, -15*s, 18*s, 0, 7); ctx.fill();
+        ctx.fillRect(-10*s, 0, 20*s, 40*s);
+        ctx.fillStyle = '#2aa'; ctx.fillRect(-4*s, -15*s, 8*s, 15*s); ctx.restore();
     }
 
-    function drawPizzaBox(ctx, x, y, scale) {
-        ctx.fillStyle = '#eee';
-        ctx.fillRect(x - 15*scale, y - 5*scale, 30*scale, 10*scale);
-        ctx.strokeStyle = '#999';
-        ctx.strokeRect(x - 15*scale, y - 5*scale, 30*scale, 10*scale);
+    function drawKrabs(ctx, x, y, s) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = '#c22'; ctx.fillRect(-25*s, -20*s, 50*s, 45*s);
+        ctx.fillStyle = '#fa0'; ctx.fillRect(-18*s, 8*s, 36*s, 6*s);
+        ctx.restore();
     }
-    
-    function drawRock(ctx, x, y, scale) {
-        ctx.fillStyle = '#666';
-        ctx.beginPath(); ctx.arc(x, y, 60*scale, 0, Math.PI*2); ctx.fill();
+
+    function drawBox(ctx, x, y, s) {
+        ctx.fillStyle = '#eee'; ctx.fillRect(x-15*s, y-5*s, 30*s, 10*s);
+        ctx.strokeStyle = '#999'; ctx.strokeRect(x-15*s, y-5*s, 30*s, 10*s);
+    }
+
+    function drawBoat(ctx, x, y, slide) {
+        ctx.fillStyle = '#c00'; ctx.fillRect(x + slide, y, 110, 32);
+        ctx.fillStyle = '#333'; ctx.fillRect(x + slide + 85, y - 8, 8, 14);
+    }
+
+    function drawTornado(ctx, x, y) {
+        ctx.strokeStyle = '#777'; ctx.lineWidth = 3;
+        var j;
+        for (j=0; j<5; j++) {
+            ctx.beginPath(); ctx.arc(x, y, 12+j*18 + Math.sin(state.frame*0.45)*8, 0, 7); ctx.stroke();
+        }
+    }
+
+    function drawRock(ctx, x, y, s) {
+        ctx.fillStyle = '#5a5a5a'; ctx.beginPath(); ctx.arc(x, y, 55*s, 0, 7); ctx.fill();
+        ctx.fillStyle = '#3a5a3a'; ctx.beginPath(); ctx.arc(x-15*s, y+10*s, 18*s, 0, 7); ctx.fill();
+    }
+
+    function drawTruck(ctx, x, y) {
+        ctx.fillStyle = '#888'; ctx.fillRect(x, y, 95, 36);
+        ctx.fillStyle = '#222'; ctx.fillRect(x+10, y+8, 70, 14);
+        ctx.fillStyle = '#fc0'; ctx.fillRect(x+95, y+10, 6, 8);
+    }
+
+    function drawHouse(ctx) {
+        ctx.fillStyle = '#864'; ctx.fillRect(260, 55, 95, 130);
+        ctx.fillStyle = '#357'; ctx.fillRect(285, 120, 35, 65);
+        ctx.fillStyle = '#333'; ctx.fillRect(300, 100, 18, 22);
     }
 
     var scenes = [
-        {
-            title: "Closing Time",
-            bg: "#45a",
-            render: function(ctx) {
-                drawSquidward(ctx, 100, 150, 1);
-                drawSpongebob(ctx, 300, 150, 1);
-            },
-            dialogs: [
-                { s: "SQUIDWARD", t: "Hurry up with those chairs!" },
-                { s: "SPONGEBOB", t: "Ready to close! 1, 2, 3...!" },
-                { s: "SQUIDWARD", t: "Done! Let's go home." }
-            ]
+        { title: "Krusty Krab — closing", bg: "#2a4a7a",
+          render: function(c) {
+              c.fillStyle = "#333"; c.fillRect(40, 160, 280, 8);
+              drawSQ(c, 120, 165, 1);
+              drawSB(c, 280, 165, 1);
+          },
+          dialogs: [
+            { s: "SQUIDWARD", t: "Hurry up with those chairs, SpongeBob. It's after closing, and I'd like to go home!" },
+            { s: "SOUND", t: "[Phone rings]" },
+            { s: "SPONGEBOB", t: "I got it, I got it! Coming!" },
+            { s: "SQUIDWARD", t: "Hello? Sorry, sir, we're closed..." }
+          ]
         },
-        {
-            title: "The Phone Call",
-            bg: "#633",
-            render: function(ctx) {
-                drawKrabs(ctx, 200, 140, 1);
-                drawSquidward(ctx, 320, 160, 0.8);
-            },
-            dialogs: [
-                { s: "PHONE", t: "Ring! Ring!" },
-                { s: "MR. KRABS", t: "Krusty Krab? Delivery? We make deliveries!" },
-                { s: "SQUIDWARD", t: "We don't make deliveries." },
-                { s: "MR. KRABS", t: "We do today! Squidward, SpongeBob, get moving!" }
-            ]
+        { title: "The pizza order", bg: "#4a2a2a",
+          render: function(c) {
+              drawKrabs(c, 200, 150, 1);
+              drawSQ(c, 320, 165, 0.85);
+          },
+          dialogs: [
+            { s: "MR. KRABS", t: "Ahoy there, Krusty Krab. How can I help ya?" },
+            { s: "MR. KRABS", t: "Pizza? Mmm... Of course we have pizza." },
+            { s: "SQUIDWARD", t: "Uh, Mr. Krabs... we don't serve pizzas." },
+            { s: "MR. KRABS", t: "Our delivery squid will bring it right over. [hangs up]" },
+            { s: "SQUIDWARD", t: "We don't deliver." },
+            { s: "MR. KRABS", t: "We don't deliver — but you do." },
+            { s: "SQUIDWARD", t: "Can't you just get SpongeBob to do it?" },
+            { s: "MR. KRABS", t: "Great idea! Take him with ya." },
+            { s: "SQUIDWARD", t: "That's not what I had in mind!" }
+          ]
         },
-        {
-            title: "The Boat",
-            bg: "#888",
-            render: function(ctx) {
-                ctx.fillStyle = '#555'; ctx.fillRect(0, 180, 400, 60); // Road
-                ctx.fillStyle = '#f00'; ctx.fillRect(140, 140, 120, 40); // Boat
-                drawSpongebob(ctx, 200, 145, 0.5);
-                drawSquidward(ctx, 240, 145, 0.5);
-                drawPizzaBox(ctx, 160, 160, 1);
-            },
-            dialogs: [
-                { s: "SPONGEBOB", t: "I'm driving! The Krusty Krab Pizza!" },
-                { s: "SQUIDWARD", t: "Just put it in reverse, SpongeBob." },
-                { s: "SPONGEBOB", t: "Reverse? Backing up! Backing up!" },
-                { s: "SOUND", t: "CRASH! CLANK!" }
-            ]
+        { title: "Boat — inspection", bg: "#1a1a1a",
+          render: function(c) {
+              drawBoat(c, 130, 140, 0);
+              drawSB(c, 200, 155, 0.55, state.dialog >= 4 ? 'inflate' : null);
+              drawSQ(c, 310, 160, 0.75);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "Front end... check. Antenna... check. Bumper... check." },
+            { s: "SPONGEBOB", t: "Bumper sticker... I Brake For Sea Urchins... check." },
+            { s: "SPONGEBOB", t: "Tire pressure! ...check. Vehicle inspection complete!" },
+            { s: "SPONGEBOB", t: "We're really making history, Squidward. First Krabby Patty Pizza ever!" },
+            { s: "SQUIDWARD", t: "Good. Then you drive. [tosses hat]" },
+            { s: "SPONGEBOB", t: "I can't. I'm still in Boating School." },
+            { s: "SQUIDWARD", t: "Come on, SpongeBob. It's just around the corner. Do what ya do in school." },
+            { s: "SPONGEBOB", t: "Well... okay. Wait, don't tell me." },
+            { s: "SQUIDWARD", t: "Back it up. Back... it up. Shift into reverse, SpongeBob!" }
+          ]
         },
-        {
-            title: "Lost in the Desert",
-            bg: "#ed3",
-            render: function(ctx) {
-                ctx.fillStyle = '#daa'; ctx.fillRect(0, 150, 400, 90); // Sand
-                drawSquidward(ctx, 180, 180, 0.8);
-                drawSpongebob(ctx, 220, 180, 0.8);
-                drawPizzaBox(ctx, 220, 200, 0.6);
-            },
-            dialogs: [
-                { s: "SQUIDWARD", t: "We're stranded. In the middle of nowhere." },
-                { s: "SPONGEBOB", t: "Don't worry, Squidward! The pioneers used to hitch rides on these!" }
-            ]
+        { title: "Reverse confusion", bg: "#2a2a3a",
+          render: function(c) {
+              drawBoat(c, 130, 140, 0);
+              drawSB(c, 195, 150, 0.5);
+              c.fillStyle = '#fff'; c.font = 'bold 11px Arial';
+              c.fillText('FORWARD', 120, 90);
+              c.fillText('REVERSE', 220, 90);
+              c.font = '9px Arial'; c.fillText('(Korean gag in episode)', 125, 105);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "Reverse? Oh yeah, reverse. Huh?!" },
+            { s: "SQUIDWARD", t: "[shouting] Back it up!" },
+            { s: "SPONGEBOB", t: "Backing up! Backing up!" },
+            { s: "SQUIDWARD", t: "Gimme the wheel, SpongeBob! Give me the wheel!" }
+          ]
         },
-        {
-            title: "The Pioneer Technique",
-            bg: "#ed3",
-            render: function(ctx) {
-                ctx.fillStyle = '#daa'; ctx.fillRect(0, 150, 400, 90);
-                drawSpongebob(ctx, 200, 190, 1);
-                // Butt wiggle representation
-                var off = Math.sin(Date.now() / 100) * 5;
-                drawSpongebob(ctx, 200 + off, 190, 1);
-            },
-            dialogs: [
-                { s: "SPONGEBOB", t: "The Krusty Krab Pizza... is the pizza..." },
-                { s: "SPONGEBOB", t: "For you and me! KRRRUUSTY KRRRAAB PIZZA!" },
-                { s: "SQUIDWARD", t: "Will you stop that?!" }
-            ]
+        { title: "Chaos & no gas", bg: "#6a5a4a",
+          render: function(c) {
+              var slide = -(state.frame % 40);
+              drawBoat(c, 100, 130, slide);
+              drawSQ(c, 200, 165, 0.7, 'shiver');
+              drawSB(c, 280, 165, 0.65);
+          },
+          dialogs: [
+            { s: "NARRATION", t: "They spin over rocks... morning... five hills... boat stops." },
+            { s: "SPONGEBOB", t: "Backing up. Backing up. [no fuel left] Backing up." },
+            { s: "SQUIDWARD", t: "Well... you backed up. I think we're out of gas." },
+            { s: "SQUIDWARD", t: "And you know what else? We're in the middle of nowhere!" },
+            { s: "SPONGEBOB", t: "And you know what else else? I think the pizza's getting cold." },
+            { s: "SQUIDWARD", t: "The pizza's cold?! Oh, the pizza's cold! How could this get any worse?!" },
+            { s: "NARRATION", t: "[Squidward kicks the boat; it refills and drives away without them.]" },
+            { s: "SPONGEBOB", t: "Well, we can still deliver it on foot." }
+          ]
         },
-        {
-            title: "The Rock",
-            bg: "#333",
-            render: function(ctx) {
-                drawRock(ctx, 200, 180, 1);
-                drawSpongebob(ctx, 200, 120, 0.6);
-            },
-            dialogs: [
-                { s: "SPONGEBOB", t: "It's not just a boulder... it's a rock!" },
-                { s: "SQUIDWARD", t: "It's just a rock." },
-                { s: "SPONGEBOB", t: "The pioneers used to ride these babies for miles!" }
-            ]
+        { title: "The long walk", bg: "#c9a86c",
+          render: function(c) {
+              c.fillStyle = '#d4b87a'; c.fillRect(0, 180, 400, 60);
+              drawSQ(c, 130, 175, 0.8);
+              drawSB(c, 260, 175, 0.75, 'wiggle');
+              drawBox(c, 250, 185, 0.7);
+          },
+          dialogs: [
+            { s: "SQUIDWARD", t: "Ow, ow, ow." },
+            { s: "SPONGEBOB", t: "The Krusty Krab pizza is the pizza for you and me..." },
+            { s: "SQUIDWARD", t: "And my feet are killing me. Whoa! SpongeBob? What are you doing?" },
+            { s: "SPONGEBOB", t: "It's an old pioneer trick. I saw it in a movie once. Shh. It's working." },
+            { s: "SPONGEBOB", t: "Truck! Sixteen wheels. Now I can show you how the pioneers hitchhike." }
+          ]
         },
-        {
-            title: "The Customer",
-            bg: "#9cf",
-            render: function(ctx) {
-                ctx.fillStyle = '#6c6'; ctx.fillRect(0, 200, 400, 40); // Lawn
-                ctx.fillStyle = '#743'; ctx.fillRect(250, 50, 100, 150); // House
-                drawSpongebob(ctx, 150, 180, 0.8);
-                drawPizzaBox(ctx, 150, 200, 0.6);
-            },
-            dialogs: [
-                { s: "SPONGEBOB", t: "Hello! Krusty Krab Pizza!" },
-                { s: "CUSTOMER", t: "Where's my drink? My Diet Dr. Kelp?" },
-                { s: "SPONGEBOB", t: "B-but... I didn't..." },
-                { s: "CUSTOMER", t: "How am I supposed to eat this without my drink?!" }
-            ]
+        { title: "Hitchhiking", bg: "#c9a86c",
+          render: function(c) {
+              c.fillStyle = '#d4b87a'; c.fillRect(0, 180, 400, 60);
+              var tx = ((state.frame * 8) % 500) - 50;
+              drawTruck(c, tx, 125);
+              drawSB(c, 200, 175, 1, 'wiggle');
+              drawSQ(c, 90, 175, 0.75);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "Whee... eee... [dancing in the road]" },
+            { s: "TRUCKER", t: "Thrashin' frashin' break dancers! [honk]" },
+            { s: "SQUIDWARD", t: "He's stopping! He's stopping! ...He's not stopping. [sand]" }
+          ]
         },
-        {
-            title: "The Resolution",
-            bg: "#9cf",
-            render: function(ctx) {
-                drawSquidward(ctx, 200, 180, 1);
-                drawPizzaBox(ctx, 300, 120, 1); // Flying pizza
-            },
-            dialogs: [
-                { s: "SQUIDWARD", t: "Here! Take your pizza! AND YOUR DRINK!" },
-                { s: "SPONGEBOB", t: "Squidward... you saved it." },
-                { s: "SQUIDWARD", t: "Let's go, SpongeBob. Back to work." }
-            ]
+        { title: "Wind & tornado", bg: "#5a6a7a",
+          render: function(c) {
+              drawTornado(c, 280, 100);
+              drawSB(c, 220, 160, 0.65, 'wiggle');
+              drawSQ(c, 140, 150, 0.65, 'shiver');
+              drawBox(c, 230, 150, 0.6);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "The Krusty Krab pizza... free delivery... very ta-asty. Whoa!" },
+            { s: "SQUIDWARD", t: "Will you let go of that stupid pizza, already?!" },
+            { s: "SPONGEBOB", t: "I can't! It's for the customer!" },
+            { s: "SQUIDWARD", t: "Who cares about the customer?!" },
+            { s: "SPONGEBOB", t: "I do!" },
+            { s: "SQUIDWARD", t: "Let go of the pizza! [tornado lifts Squidward]" },
+            { s: "SQUIDWARD", t: "Hang onto the pizza! [they fall — pizza parachute]" },
+            { s: "SQUIDWARD", t: "Where's the road?! We're doomed! How are we gonna get home?!" }
+          ]
+        },
+        { title: "Moss & split paths", bg: "#c9a86c",
+          render: function(c) {
+              c.fillStyle = '#d4b87a'; c.fillRect(0, 170, 400, 70);
+              drawRock(c, 100, 200, 0.35);
+              drawSB(c, 260, 175, 0.7);
+              drawSQ(c, 140, 175, 0.7);
+              c.fillStyle = '#863'; c.fillRect(30 + (state.frame%20), 195, 14, 10);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "I think town's this way. [points]" },
+            { s: "SQUIDWARD", t: "Oh, don't tell me, Jethro. The pioneers?" },
+            { s: "SPONGEBOB", t: "Moss always points to civilization." },
+            { s: "SQUIDWARD", t: "Well, then I'm going this way. Trust me, I know where I'm going." },
+            { s: "NARRATION", t: "[Wide shot: another city lies the other way.]" }
+          ]
+        },
+        { title: "Song montage", bg: "#b98a5c",
+          render: function(c) {
+              c.fillStyle = '#d4b87a'; c.fillRect(0, 170, 400, 70);
+              drawSB(c, 200, 175, 0.85, 'wiggle');
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "The Krusty Krab pizza is the pizza, absolutivally." },
+            { s: "SPONGEBOB", t: "[beatboxing] pizza... pizza..." },
+            { s: "SPONGEBOB", t: "Krusty-Kra-yaaa-yeah pizza is the pizza, yeah, for you and me-eee-hee!" },
+            { s: "SPONGEBOB", t: "[exhausted] Krab Pizza... for you... Krus... the Krusshy and the... Krab... pizza..." },
+            { s: "NARRATION", t: "[Both collapse face-down in the sand.]" }
+          ]
+        },
+        { title: "Hunger & coral", bg: "#c9a86c",
+          render: function(c) {
+              c.fillStyle = '#d4b87a'; c.fillRect(0, 175, 400, 65);
+              drawSB(c, 220, 185, 0.65);
+              drawSQ(c, 120, 185, 0.7);
+              c.fillStyle = '#e88'; c.fillRect(180, 200, 22, 14);
+          },
+          dialogs: [
+            { s: "SQUIDWARD", t: "Sponge... we gotta eat something." },
+            { s: "SPONGEBOB", t: "I heard in times of hardship the pioneers would eat coral." },
+            { s: "NARRATION", t: "[Squidward grabs coral and devours it.]" },
+            { s: "SPONGEBOB", t: "No, maybe it wasn't coral. Maybe it was sand. No, no, mud." },
+            { s: "SQUIDWARD", t: "[spits] Give me the pizza!" },
+            { s: "SPONGEBOB", t: "Wait, I remember now! It was coral! We promised it's for the customer." }
+          ]
+        },
+        { title: "The pizza trick", bg: "#c9a86c",
+          render: function(c) {
+              drawSQ(c, 160, 170, 0.85);
+              drawSB(c, 280, 175, 0.7);
+              drawBox(c, 220, 188, 0.75);
+          },
+          dialogs: [
+            { s: "SQUIDWARD", t: "You're right. It's for the customer. Maybe we better check on it." },
+            { s: "SQUIDWARD", t: "Just a peek. [opens box]" },
+            { s: "SPONGEBOB", t: "Okay, it's fine. [slams box]" },
+            { s: "SQUIDWARD", t: "Is that the cheese? And the pepperoni? Oh, looks good, huh?" },
+            { s: "SPONGEBOB", t: "Wait a second! I'm not letting you eat the pizza!" },
+            { s: "SQUIDWARD", t: "Give me the pizza! Don't make me take it away from you!" },
+            { s: "SPONGEBOB", t: "Get away! [runs]" },
+            { s: "SQUIDWARD", t: "Get back here! ...Wait... [too tired]" },
+            { s: "NARRATION", t: "[SpongeBob runs into Squidward.]" },
+            { s: "SQUIDWARD", t: "I want that pizza and you're gonna hand it over one way or another!" }
+          ]
+        },
+        { title: "Saved! The rock", bg: "#c9a86c",
+          render: function(c) {
+              drawRock(c, 220, 175, 1);
+              drawSB(c, 200, 130, 0.7, 'wiggle');
+              drawSQ(c, 70, 175, 0.75);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "Look! We're saved! We're saved! Saved, saved! Yes, we are saved!" },
+            { s: "SQUIDWARD", t: "That's just a stupid boulder!" },
+            { s: "SPONGEBOB", t: "It's not just a boulder! It's a rock! A big beautiful, old rock!" },
+            { s: "SPONGEBOB", t: "The pioneers used to ride these babies for miles! And it's in great shape." },
+            { s: "SQUIDWARD", t: "Will you forget the stupid pioneers?! None of them left — lousy hitchhikers, ate coral..." },
+            { s: "NARRATION", t: "[SpongeBob runs over Squidward with the boulder.] Hold on there, Jethro!" }
+          ]
+        },
+        { title: "Customer's door", bg: "#8ac4e8",
+          render: function(c) {
+              drawHouse(c);
+              drawRock(c, 120, 200, 0.55);
+              drawSB(c, 230, 185, 0.65, 'wiggle');
+              drawSQ(c, 170, 185, 0.65);
+              drawBox(c, 235, 195, 0.65);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "I can't wait to see the look on our customer's face! [rings bell]" },
+            { s: "CUSTOMER", t: "Yeah?" },
+            { s: "SPONGEBOB", t: "Congratulations, sir, your Krabby Patty pizza is here!" },
+            { s: "CUSTOMER", t: "Wow, thanks! I've been dyin' for one of these. It— Where's my drink?" },
+            { s: "SPONGEBOB", t: "What drink?" },
+            { s: "CUSTOMER", t: "My drink?! My diet Dr. Kelp? Don't tell me you forgot my drink!" },
+            { s: "CUSTOMER", t: "How am I supposed to eat this pizza without my drink?!" },
+            { s: "CUSTOMER", t: "Didn't you ever once think of the customer?! I ain't buyin! [slams door]" }
+          ]
+        },
+        { title: "Diet Dr. Kelp", bg: "#8ac4e8",
+          render: function(c) {
+              drawHouse(c);
+              c.fillStyle = '#0a5'; c.fillRect(50, 140, 14, 28);
+              c.fillStyle = '#fff'; c.font = '6px Arial'; c.fillText('KELP', 48, 138);
+              drawSB(c, 200, 195, 0.55);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "But, you didn't order any... [tears]" },
+            { s: "SQUIDWARD", t: "Sponge? It's okay... Sponge?" },
+            { s: "NARRATION", t: "[Squidward grabs the pizza and pounds on the door.]" }
+          ]
+        },
+        { title: "On the house", bg: "#8ac4e8",
+          render: function(c) {
+              drawHouse(c);
+              drawSQ(c, 240, 175, 0.9);
+              var slam = (state.dialog % 2) * 6;
+              drawBox(c, 300 - slam, 130, 0.9);
+          },
+          dialogs: [
+            { s: "CUSTOMER", t: "Another one? I ain't payin' for that!" },
+            { s: "SQUIDWARD", t: "Well, this one's on the house! [slams pizza in customer's face]" },
+            { s: "SPONGEBOB", t: "Did he change his mind?" },
+            { s: "SQUIDWARD", t: "He sure did. Ate the whole thing in one bite." },
+            { s: "SPONGEBOB", t: "No drink?" },
+            { s: "SQUIDWARD", t: "Nah. Now, take me home." }
+          ]
+        },
+        { title: "Back to the Krusty Krab", bg: "#000",
+          render: function(c) {
+              drawRock(c, 200, 170, 0.5);
+              drawSB(c, 200, 130, 0.55);
+              drawSQ(c, 170, 145, 0.55);
+              c.fillStyle = '#a22'; c.fillRect(140, 40, 120, 70);
+              c.fillStyle = '#fe0'; c.font = '10px Arial'; c.fillText('KK', 185, 78);
+          },
+          dialogs: [
+            { s: "SPONGEBOB", t: "Are you kidding? We have just enough time to make it back to work!" },
+            { s: "SQUIDWARD", t: "Work? Oh, my aching tentacles. [fade to black]" }
+          ]
         }
     ];
+
+    function save() {
+        setCookie('3ds_pizza_save', state.scene + ',' + state.dialog);
+    }
+
+    function load() {
+        var saved = getCookie('3ds_pizza_save');
+        if (saved) {
+            var p = saved.split(',');
+            var ns = parseInt(p[0], 10);
+            var nd = parseInt(p[1], 10);
+            if (!isNaN(ns) && ns >= 0 && ns < scenes.length) state.scene = ns;
+            if (!isNaN(nd) && nd >= 0) state.dialog = nd;
+            var sc = scenes[state.scene];
+            if (state.dialog >= sc.dialogs.length) state.dialog = 0;
+        }
+    }
 
     function render() {
         var s = scenes[state.scene];
         var d = s.dialogs[state.dialog];
-
-        // Background
-        ctx.fillStyle = s.bg;
-        ctx.fillRect(0, 0, 400, 240);
-
-        // Content
+        ctx.fillStyle = s.bg; ctx.fillRect(0, 0, 400, 240);
         s.render(ctx);
-
-        // Titles & Dialogue
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(0, 0, 400, 30);
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Arial';
-        ctx.fillText("PIZZA DELIVERY: " + s.title, 10, 20);
-
-        subEl.innerHTML = '<span style="color:#aaa">' + d.s + ':</span> ' + d.t;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, 400, 28);
+        ctx.fillStyle = '#fff'; ctx.font = '11px Arial';
+        ctx.fillText(s.title + " (" + (state.scene+1) + "/" + scenes.length + ")", 8, 18);
+        if (infoEl) infoEl.innerHTML = 'SCENE: ' + (state.scene+1) + '/' + scenes.length;
+        if (modeEl) modeEl.innerHTML = state.mode;
+        subEl.innerHTML = '<strong>' + d.s + '</strong>: ' + d.t;
     }
 
     function next() {
         var s = scenes[state.scene];
         state.dialog++;
         if (state.dialog >= s.dialogs.length) {
-            state.dialog = 0;
-            state.scene++;
+            state.dialog = 0; state.scene++;
             if (state.scene >= scenes.length) state.scene = 0;
         }
+        save();
+        state.lastUpdate = Date.now();
         render();
     }
 
-    // Controls
     document.onkeydown = function(e) {
-        var k = e.keyCode;
-        if (k === 13) { // A
+        if (e.keyCode === 13) {
             state.mode = 'MANUAL';
             next();
-        } else if (k === 37 || k === 38 || k === 39 || k === 40) { // D-Pad
+        } else {
             state.mode = (state.mode === 'AUTO' ? 'MANUAL' : 'AUTO');
-            modeEl.innerHTML = state.mode;
+            if (modeEl) modeEl.innerHTML = state.mode;
+            render();
         }
-        render();
     };
 
-    canvas.onclick = function() {
-        state.mode = 'MANUAL';
-        next();
-    };
+    canvas.onclick = function() { state.mode = 'MANUAL'; next(); };
 
-    // Main Loop
     setInterval(function() {
-        if (state.mode === 'AUTO') {
-            var now = Date.now();
-            if (now - state.lastUpdate > 3000) {
-                next();
-                state.lastUpdate = now;
-            }
+        state.frame++;
+        if (state.mode === 'AUTO' && (Date.now() - state.lastUpdate > 3200)) {
+            next();
+        } else {
+            render();
         }
-        render();
     }, 50);
 
+    load();
     render();
 })();
 </script>
