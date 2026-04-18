@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Pong</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            color: #eee;
+            font-family: sans-serif;
+            width: 400px;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+            margin: 0 auto;
+            background: #000;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 5px;
+            background: rgba(0,0,0,0.8);
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .player-score { color: #0f0; }
+        .cpu-score { color: #f00; }
+
+        #hint {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            padding: 3px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 18px;
+            color: #0f0;
+            text-shadow: 2px 2px #000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span class="player-score">P1: <span id="p-score">0</span></span>
+        <span class="cpu-score">CPU: <span id="c-score">0</span></span>
+    </div>
+    <canvas id="canvas" width="400" height="220"></canvas>
+    <div id="message"></div>
+    <div id="hint">
+        <span style="color:#0af">D-Pad Up/Down</span> Move &bull;
+        <span style="color:#0af">A</span> Serve &bull;
+        <span style="color:#0af">Touch</span> Move
+    </div>
+
+    <script type="text/javascript">
+    (function() {
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var pScoreEl = document.getElementById('p-score');
+        var cScoreEl = document.getElementById('c-score');
+        var msgEl = document.getElementById('message');
+
+        var paddleHeight = 50;
+        var paddleWidth = 8;
+        var paddleSpeed = 5;
+
+        var player = {
+            x: 20,
+            y: 85,
+            score: 0
+        };
+
+        var cpu = {
+            x: 372,
+            y: 85,
+            score: 0,
+            speed: 3
+        };
+
+        var ball = {
+            x: 200,
+            y: 110,
+            size: 6,
+            dx: 3,
+            dy: 2,
+            speed: 4,
+            serving: true
+        };
+
+        var keys = {};
+        var gameRunning = false;
+
+        function init() {
+            player.score = 0;
+            cpu.score = 0;
+            player.y = (canvas.height - paddleHeight) / 2;
+            cpu.y = (canvas.height - paddleHeight) / 2;
+            resetBall();
+            updateScore();
+            msgEl.innerHTML = 'PRESS A TO SERVE';
+            msgEl.style.display = 'block';
+            draw();
+        }
+
+        function resetBall() {
+            ball.serving = true;
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = 0;
+            ball.dy = 0;
+        }
+
+        function serve() {
+            if (ball.serving) {
+                ball.serving = false;
+                ball.dx = (Math.random() > 0.5 ? 1 : -1) * ball.speed;
+                ball.dy = (Math.random() - 0.5) * 3;
+                gameRunning = true;
+                msgEl.style.display = 'none';
+                gameLoop();
+            } else if (player.score >= 11 || cpu.score >= 11) {
+                init();
+            }
+        }
+
+        function updateScore() {
+            pScoreEl.innerHTML = player.score;
+            cScoreEl.innerHTML = cpu.score;
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            setTimeout(gameLoop, 20);
+        }
+
+        function update() {
+            // Move player
+            if (keys[38]) player.y -= paddleSpeed;
+            if (keys[40]) player.y += paddleSpeed;
+
+            // Clamp player
+            if (player.y < 0) player.y = 0;
+            if (player.y + paddleHeight > canvas.height) player.y = canvas.height - paddleHeight;
+
+            // CPU AI
+            var cpuTarget = ball.y - paddleHeight / 2;
+            if (!ball.serving) {
+                if (cpu.y < cpuTarget - 5) cpu.y += cpu.speed;
+                else if (cpu.y > cpuTarget + 5) cpu.y -= cpu.speed;
+            }
+
+            // Clamp CPU
+            if (cpu.y < 0) cpu.y = 0;
+            if (cpu.y + paddleHeight > canvas.height) cpu.y = canvas.height - paddleHeight;
+
+            // Move ball
+            if (!ball.serving) {
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+            }
+
+            // Wall collision (top/bottom)
+            if (ball.y - ball.size < 0) {
+                ball.y = ball.size;
+                ball.dy = -ball.dy;
+            }
+            if (ball.y + ball.size > canvas.height) {
+                ball.y = canvas.height - ball.size;
+                ball.dy = -ball.dy;
+            }
+
+            // Paddle collision - Player
+            if (ball.x - ball.size < player.x + paddleWidth &&
+                ball.x + ball.size > player.x &&
+                ball.y + ball.size > player.y &&
+                ball.y - ball.size < player.y + paddleHeight) {
+                
+                ball.x = player.x + paddleWidth + ball.size;
+                
+                var hitPos = (ball.y - player.y) / paddleHeight;
+                ball.dy = (hitPos - 0.5) * 6;
+                ball.dx = Math.abs(ball.dx) + 0.5;
+                if (ball.dx > 8) ball.dx = 8;
+            }
+
+            // Paddle collision - CPU
+            if (ball.x + ball.size > cpu.x &&
+                ball.x - ball.size < cpu.x + paddleWidth &&
+                ball.y + ball.size > cpu.y &&
+                ball.y - ball.size < cpu.y + paddleHeight) {
+                
+                ball.x = cpu.x - ball.size;
+                
+                var hitPos = (ball.y - cpu.y) / paddleHeight;
+                ball.dy = (hitPos - 0.5) * 6;
+                ball.dx = -(Math.abs(ball.dx) + 0.5);
+                if (ball.dx < -8) ball.dx = -8;
+            }
+
+            // Score
+            if (ball.x < 0) {
+                cpu.score++;
+                updateScore();
+                resetBall();
+                msgEl.innerHTML = 'CPU SCORES<br>PRESS A';
+                msgEl.style.display = 'block';
+                gameRunning = false;
+            }
+            if (ball.x > canvas.width) {
+                player.score++;
+                updateScore();
+                resetBall();
+                msgEl.innerHTML = 'YOU SCORE!<br>PRESS A';
+                msgEl.style.display = 'block';
+                gameRunning = false;
+            }
+
+            // Check win
+            if (player.score >= 11) {
+                msgEl.innerHTML = 'YOU WIN!<br>PRESS A';
+                msgEl.style.display = 'block';
+                gameRunning = false;
+            }
+            if (cpu.score >= 11) {
+                msgEl.innerHTML = 'CPU WINS!<br>PRESS A';
+                msgEl.style.display = 'block';
+                gameRunning = false;
+            }
+        }
+
+        function draw() {
+            // Background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Center line
+            ctx.strokeStyle = '#333';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Player paddle
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(player.x, player.y, paddleWidth, paddleHeight);
+
+            // CPU paddle
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(cpu.x, cpu.y, paddleWidth, paddleHeight);
+
+            // Ball
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Keyboard controls
+        document.onkeydown = function(e) {
+            var key = e.keyCode;
+            if (key === 13) { // A
+                e.preventDefault();
+                serve();
+            } else if (key === 38) { // Up
+                e.preventDefault();
+                keys[key] = true;
+            } else if (key === 40) { // Down
+                e.preventDefault();
+                keys[key] = true;
+            }
+        };
+
+        document.onkeyup = function(e) {
+            keys[e.keyCode] = false;
+        };
+
+        // Touch controls
+        canvas.ontouchstart = function(e) {
+            e.preventDefault();
+            var rect = canvas.getBoundingClientRect();
+            var y = e.touches[0].clientY - rect.top;
+            if (y < player.y + paddleHeight / 2) keys[38] = true;
+            else keys[40] = true;
+        };
+
+        canvas.ontouchend = function(e) {
+            keys[38] = false;
+            keys[40] = false;
+        };
+
+        // Desktop mouse
+        canvas.onmousemove = function(e) {
+            var rect = canvas.getBoundingClientRect();
+            player.y = e.clientY - rect.top - paddleHeight / 2;
+            if (player.y < 0) player.y = 0;
+            if (player.y + paddleHeight > canvas.height) player.y = canvas.height - paddleHeight;
+            if (ball.serving) draw();
+        };
+
+        canvas.onclick = function() {
+            serve();
+        };
+
+        init();
+    })();
+    </script>
+</body>
+</html>
