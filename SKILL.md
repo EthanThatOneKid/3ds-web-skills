@@ -6,15 +6,13 @@ metadata:
   author: etok.zo.computer
 ---
 
-# 3DS Web Development
+# 3DS web development
 
 Developing for the Nintendo 3DS browser requires a "retro-forward" mindset. Because the hardware uses a legacy WebKit-based engine (NetFront NX), modern web features are unavailable.
 
 > **Official Browser Specs:** https://archive.today/8qs51
 
----
-
-## Hardware Overview
+## Hardware overview
 
 | Spec | Old 3DS | New 3DS |
 |------|---------|---------|
@@ -22,14 +20,14 @@ Developing for the Nintendo 3DS browser requires a "retro-forward" mindset. Beca
 | RAM | 128 MB (shared) | 256 MB (shared) |
 | Screen | 400×240 (top), 320×240 (bottom) | Same |
 
-## Browser Engines
+## Browser engines
 
 | | Original 3DS | New 3DS |
 |--|---------------|---------|
 | **Engine** | Netfront Browser | Netfront Browser NX v3.0 |
 | **User Agent** | `Mozilla/5.0 (Nintendo 3DS; U: en) Version/1.7498 US` | `Mozilla/5.0 (New Nintendo 3DS like iPhone) AppleWebKit/536.30 (KHTML, like Gecko) NX` |
 
-## Web Standards Support
+## Web standards support
 
 | Feature | Original 3DS | New 3DS |
 |---------|-------------|---------|
@@ -42,7 +40,7 @@ Developing for the Nintendo 3DS browser requires a "retro-forward" mindset. Beca
 | WebGL | No | No |
 | Geolocation | No | No |
 
-## Media Support
+## Media support
 
 | Media | Original 3DS | New 3DS |
 |-------|-------------|---------|
@@ -53,13 +51,11 @@ Developing for the Nintendo 3DS browser requires a "retro-forward" mindset. Beca
 
 > ⚠️ **Audio note:** Web Audio API (oscillators, nodes, etc.) is not available on either model. On New 3DS, use pre-encoded AAC or MP3 files via `<audio>` or the `Audio()` API. On Original 3DS, audio playback in the browser is not officially supported.
 
----
-
-## Input Controls
+## Input controls
 
 The browser hijacks most physical buttons for navigation. Only a subset of inputs can be intercepted by web applications via standard event listeners.
 
-### Interceptable Inputs (Safe for Use)
+### Interceptable inputs (safe for use)
 
 Use `e.preventDefault()` to suppress default browser scrolling or focal jumping.
 
@@ -72,13 +68,13 @@ Use `e.preventDefault()` to suppress default browser scrolling or focal jumping.
 | **A Button** | 13 | Enter | Click/Submit |
 | **Touchscreen** | N/A | `touchstart` | Mouse Click |
 
-#### Touch Screen
+#### Touch screen
 - Bottom screen acts as a touch input device
 - Fires standard `touchstart`, `touchmove`, `touchend` events
 - Also fires `mousedown`/`mousemove`/`mouseup` when tapping
 - Use `e.touches[0].clientX` and `e.touches[0].clientY` for coordinates
 
-### Reserved Inputs (Avoid)
+### Reserved inputs (avoid)
 
 | Input | Browser Default / Conflict |
 |-------|----------------------------|
@@ -90,14 +86,12 @@ Use `e.preventDefault()` to suppress default browser scrolling or focal jumping.
 
 > **Gamepad API** (`navigator.webkitGetGamepads`): Does NOT return button states on real hardware (Old 3DS). On New 3DS, Gamepad API is listed as supported but may be unreliable. Do not rely on it for critical input.
 
-### Button Conflicts with Browser
+### Button conflicts with browser
 Most buttons are **hijacked by browser behavior** and cannot be used freely.
 
 **Safely usable for games:** Only **Up, Down, Left, Right, A, and touch** can be used without browser interference.
 
----
-
-## Input Handler Example
+## Input handler example
 
 ```javascript
 // Robust ES3-compatible input listener for games/apps
@@ -116,9 +110,7 @@ document.addEventListener('keydown', function(e) { handleKey(e, true); }, false)
 document.addEventListener('keyup', function(e) { handleKey(e, false); }, false);
 ```
 
----
-
-## Development Philosophy & Best Practices
+## Development philosophy & best practices
 
 1. **Server-Side Everything:** 100% of business logic and HTML generation should happen on the server. The 3DS browser is a terminal, not a compute platform.
    - Recommended stacks: Node.js + Express, PHP, Python + Flask/FastAPI
@@ -139,26 +131,22 @@ or
 new Audio('chiptune.mp3').play();
 ```
 
----
+## Technical constraints
 
-## Technical Constraints
-
-### Hardware Limits
+### Hardware limits
 - **RAM:** Large canvas buffers or multiple canvases will quickly trigger **Page too large** errors or crashes.
 - **Performance:** Heavy pixel manipulation (`getImageData`) and complex physics will run at ~1–2 FPS.
 
-### Canvas Specifications
+### Canvas specifications
 - **Maximum size:** 400×240 pixels (top screen), 320×240 (bottom)
 - **Context:** Only 2D context available
 - **Optimization:** Use `requestAnimationFrame` sparingly; prefer event-driven rendering. Offscreen canvas not supported.
 
-### CSS Strategy
+### CSS strategy
 - **Vendor Prefixes:** Prefix everything: `-webkit-`, `-moz-`, `-o-`, `-ms-`
 - **Layout:** Keep selectors simple and avoid complex combinators to prevent performance hits during reflow.
 
----
-
-## Getting Started
+## Getting started
 
 When building a 3DS web project:
 
@@ -167,12 +155,6 @@ When building a 3DS web project:
 3. **Input Setup:** Use keyboard events for D-Pad/A input + touch events for the touchscreen.
 4. **Audio:** For audio on New 3DS, use AAC or MP3 via `<audio>` element.
 5. **Verification:** Test and verify on actual hardware or an accurate emulator.
-
----
-
-## Examples
-
-- `/examples/debug.html` — Input tester showing all button codes via polling
 
 [^1]: https://www.reddit.com/r/3DS/comments/4umrwj/using_the_3ds_controls_to_build_games_for_the_3ds/
 [^2]: https://github.com/jwarby/3ds-to-pc-controller

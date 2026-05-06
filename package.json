@@ -1,0 +1,17 @@
+{
+  "name": "3ds-web-skills",
+  "version": "1.0.0",
+  "description": "Web development skills and examples for the Nintendo 3DS browser",
+  "main": "scripts/dev.js",
+  "scripts": {
+    "dev": "node --watch scripts/dev.js",
+    "start": "node scripts/dev.js"
+  },
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0",
+    "sirv": "^3.0.0",
+    "tunnelmole": "^2.4.0"
+  },
+  "author": "EthanThatOneKid",
+  "license": "MIT"
+}
