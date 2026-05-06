@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Memo Pad</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #fff9c4; /* Yellow notepad color */
+            font-family: sans-serif;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            background: #fbc02d;
+            color: #333;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #f9a825;
+        }
+        #btn-clear {
+            background: #d32f2f;
+            color: #fff;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #editor {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: transparent;
+            padding: 10px 10px 10px 20px;
+            font-size: 14px;
+            line-height: 24px;
+            resize: none;
+            outline: none;
+            /* Lined paper effect */
+            background-image: linear-gradient(#fbc02d 1px, transparent 1px);
+            background-size: 100% 24px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <span>MEMO PAD</span>
+        <button id="btn-clear">CLEAR</button>
+    </div>
+    <textarea id="editor" placeholder="Type your notes here..."></textarea>
+
+    <script>
+        var editor = document.getElementById('editor');
+        var btnClear = document.getElementById('btn-clear');
+
+        // Load from localStorage (or cookies if we want persistence across 3DS sessions better, but localStorage is supported on modern 3DS browser)
+        try {
+            var saved = localStorage.getItem('3ds_memo');
+            if (saved !== null) {
+                editor.value = saved;
+            }
+        } catch(e) {}
+
+        function save() {
+            try {
+                localStorage.setItem('3ds_memo', editor.value);
+            } catch(e) {
+                // Fallback to cookie if needed
+                document.cookie = '3ds_memo=' + encodeURIComponent(editor.value) + '; path=/; max-age=31536000';
+            }
+        }
+
+        // Try load from cookie if localstorage failed/empty
+        if (!editor.value) {
+            try {
+                var c = document.cookie.split(';');
+                for (var i=0; i<c.length; i++) {
+                    if (c[i].trim().indexOf('3ds_memo=') === 0) {
+                        editor.value = decodeURIComponent(c[i].trim().substring(9));
+                    }
+                }
+            } catch(e) {}
+        }
+
+        editor.addEventListener('input', save);
+
+        btnClear.onclick = function() {
+            if (confirm('Clear memo pad?')) {
+                editor.value = '';
+                save();
+            }
+        };
+    </script>
+</body>
+</html>

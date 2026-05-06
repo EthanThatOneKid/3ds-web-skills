@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Coin Toss</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #6b8e23; /* Retro Poketch green color */
+            color: #000;
+            font-family: monospace;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #coin-container {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+        #coin {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 1s ease-out;
+        }
+        .face {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            position: absolute;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            border: 4px solid #333;
+        }
+        #heads {
+            background-color: #f0e68c;
+            color: #333;
+        }
+        #tails {
+            background-color: #ffd700;
+            color: #333;
+            transform: rotateY(180deg);
+        }
+        #instructions {
+            margin-top: 30px;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="coin-container">
+        <div id="coin">
+            <div id="heads" class="face">H</div>
+            <div id="tails" class="face">T</div>
+        </div>
+    </div>
+    <div id="instructions">
+        Tap screen or press A<br>to flip the coin
+    </div>
+
+    <script>
+        var coin = document.getElementById('coin');
+        var container = document.getElementById('coin-container');
+        var isFlipping = false;
+        var currentRotation = 0;
+
+        function flipCoin() {
+            if (isFlipping) return;
+            isFlipping = true;
+            
+            // Random number of extra spins (3 to 6)
+            var spins = Math.floor(Math.random() * 4) + 3;
+            var isHeads = Math.random() > 0.5;
+            
+            var baseRotation = currentRotation + (spins * 360);
+            currentRotation = baseRotation + (isHeads ? 0 : 180);
+            
+            coin.style.transition = 'transform 2s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            coin.style.transform = 'rotateY(' + currentRotation + 'deg)';
+            
+            setTimeout(function() {
+                isFlipping = false;
+            }, 2000);
+        }
+
+        container.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            flipCoin();
+        });
+        container.addEventListener('mousedown', flipCoin);
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13) { // A button
+                e.preventDefault();
+                flipCoin();
+            }
+        });
+    </script>
+</body>
+</html>

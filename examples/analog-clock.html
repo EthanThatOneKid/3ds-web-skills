@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Analog Clock</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #111;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #clock {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: #eee;
+            border: 8px solid #333;
+            position: relative;
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        .center-dot {
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        .hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            background: #333;
+            border-radius: 4px;
+        }
+        #hour {
+            width: 6px;
+            height: 50px;
+            margin-left: -3px;
+        }
+        #minute {
+            width: 4px;
+            height: 70px;
+            margin-left: -2px;
+        }
+        #second {
+            width: 2px;
+            height: 85px;
+            margin-left: -1px;
+            background: #f44336;
+        }
+        .mark {
+            position: absolute;
+            width: 4px;
+            height: 10px;
+            background: #999;
+            left: 50%;
+            margin-left: -2px;
+            transform-origin: 2px 100px; /* half of 200px */
+        }
+    </style>
+</head>
+<body>
+    <div id="clock">
+        <div class="center-dot"></div>
+        <div id="hour" class="hand"></div>
+        <div id="minute" class="hand"></div>
+        <div id="second" class="hand"></div>
+    </div>
+
+    <script>
+        var clock = document.getElementById('clock');
+        var hourHand = document.getElementById('hour');
+        var minuteHand = document.getElementById('minute');
+        var secondHand = document.getElementById('second');
+
+        // Draw 12 marks
+        for(var i=0; i<12; i++) {
+            var mark = document.createElement('div');
+            mark.className = 'mark';
+            mark.style.transform = 'rotate(' + (i * 30) + 'deg)';
+            if (i % 3 === 0) {
+                mark.style.height = '15px';
+                mark.style.background = '#333';
+            }
+            clock.appendChild(mark);
+        }
+
+        function updateClock() {
+            var now = new Date();
+            var h = now.getHours() % 12;
+            var m = now.getMinutes();
+            var s = now.getSeconds();
+
+            var hDeg = (h * 30) + (m * 0.5);
+            var mDeg = (m * 6) + (s * 0.1);
+            var sDeg = s * 6;
+
+            hourHand.style.transform = 'rotate(' + hDeg + 'deg)';
+            minuteHand.style.transform = 'rotate(' + mDeg + 'deg)';
+            secondHand.style.transform = 'rotate(' + sDeg + 'deg)';
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+</html>

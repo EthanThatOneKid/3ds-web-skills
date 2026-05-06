@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Alarm Clock</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #ffccbc;
+            font-family: monospace;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #current-time {
+            font-size: 48px;
+            color: #d84315;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #d84315;
+        }
+        select {
+            font-size: 16px;
+            padding: 5px;
+            border: 1px solid #ccc;
+        }
+        #btn-toggle {
+            background: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #btn-toggle.active {
+            background: #f44336;
+        }
+        .alarming {
+            animation: shake 0.5s infinite;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="current-time">00:00:00</div>
+    <div class="controls">
+        <select id="sel-hour"></select> :
+        <select id="sel-min"></select>
+        <button id="btn-toggle">SET</button>
+    </div>
+
+    <script>
+        var timeEl = document.getElementById('current-time');
+        var selHour = document.getElementById('sel-hour');
+        var selMin = document.getElementById('sel-min');
+        var btnToggle = document.getElementById('btn-toggle');
+        
+        var alarmTime = null; // {h, m}
+        var isAlarming = false;
+
+        // Populate selects
+        for(var i=0; i<24; i++) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = (i < 10 ? '0' : '') + i;
+            selHour.appendChild(opt);
+        }
+        for(var i=0; i<60; i++) {
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = (i < 10 ? '0' : '') + i;
+            selMin.appendChild(opt);
+        }
+
+        btnToggle.onclick = function() {
+            if (isAlarming) {
+                // Stop alarm
+                isAlarming = false;
+                alarmTime = null;
+                document.body.classList.remove('alarming');
+                btnToggle.textContent = 'SET';
+                btnToggle.classList.remove('active');
+            } else if (alarmTime) {
+                // Cancel alarm
+                alarmTime = null;
+                btnToggle.textContent = 'SET';
+                btnToggle.classList.remove('active');
+            } else {
+                // Set alarm
+                alarmTime = {
+                    h: parseInt(selHour.value),
+                    m: parseInt(selMin.value)
+                };
+                btnToggle.textContent = 'CANCEL';
+                btnToggle.classList.add('active');
+            }
+        };
+
+        function beep() {
+            try {
+                var actx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = actx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(1000, actx.currentTime);
+                osc.connect(actx.destination);
+                osc.start();
+                osc.stop(actx.currentTime + 0.2);
+            } catch(e){}
+        }
+
+        function update() {
+            var now = new Date();
+            var h = now.getHours();
+            var m = now.getMinutes();
+            var s = now.getSeconds();
+            
+            timeEl.textContent = (h<10?'0':'')+h + ':' + (m<10?'0':'')+m + ':' + (s<10?'0':'')+s;
+
+            if (alarmTime && !isAlarming) {
+                if (h === alarmTime.h && m === alarmTime.m) {
+                    isAlarming = true;
+                    document.body.classList.add('alarming');
+                    btnToggle.textContent = 'STOP';
+                }
+            }
+            if (isAlarming && s % 2 === 0) {
+                beep();
+            }
+        }
+
+        setInterval(update, 1000);
+        update();
+    </script>
+</body>
+</html>

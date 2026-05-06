@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Flashlight</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #ffffff;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #instructions {
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">Tap to change color<br>Use in the dark</div>
+
+    <script>
+        var colors = ['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+        var idx = 0;
+
+        function changeColor(e) {
+            if (e) e.preventDefault();
+            idx = (idx + 1) % colors.length;
+            document.body.style.background = colors[idx];
+            document.getElementById('instructions').style.opacity = '0';
+        }
+
+        document.body.addEventListener('touchstart', changeColor);
+        document.body.addEventListener('mousedown', changeColor);
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13 || e.keyCode === 32) { // A or Space
+                changeColor();
+            }
+        });
+    </script>
+</body>
+</html>

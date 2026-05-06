@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Decision Roulette</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #e1bee7;
+            font-family: monospace;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #wheel-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid #333;
+            overflow: hidden;
+            position: relative;
+            transition: transform 3s cubic-bezier(0.25, 0.1, 0.25, 1);
+            /* Conic gradient for 4 sections */
+            background: conic-gradient(
+                #ff5252 0deg 90deg,
+                #448aff 90deg 180deg,
+                #69f0ae 180deg 270deg,
+                #ffd740 270deg 360deg
+            );
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 20px solid #333;
+            z-index: 10;
+        }
+        #btn-spin {
+            margin-top: 20px;
+            padding: 8px 20px;
+            font-weight: bold;
+            font-family: inherit;
+            background: #fff;
+            border: 2px solid #333;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 #333;
+        }
+        #btn-spin:active {
+            box-shadow: 0 0 0 #333;
+            transform: translate(2px, 2px);
+        }
+        .center-dot {
+            width: 20px;
+            height: 20px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="wheel-container">
+        <div id="pointer"></div>
+        <div id="wheel">
+            <div class="center-dot"></div>
+        </div>
+    </div>
+    <button id="btn-spin">SPIN (A)</button>
+
+    <script>
+        var wheel = document.getElementById('wheel');
+        var btnSpin = document.getElementById('btn-spin');
+        var currentRotation = 0;
+        var isSpinning = false;
+
+        function spin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            
+            // Random spin amount (3 to 6 full rotations + random angle)
+            var extraSpins = (Math.floor(Math.random() * 4) + 3) * 360;
+            var randomAngle = Math.floor(Math.random() * 360);
+            
+            currentRotation += extraSpins + randomAngle;
+            
+            wheel.style.transition = 'transform 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+            wheel.style.transform = 'rotate(' + currentRotation + 'deg)';
+            
+            setTimeout(function() {
+                isSpinning = false;
+            }, 3000);
+        }
+
+        btnSpin.addEventListener('touchstart', function(e) { e.preventDefault(); spin(); });
+        btnSpin.addEventListener('mousedown', spin);
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13) { // A
+                e.preventDefault();
+                spin();
+            }
+        });
+    </script>
+</body>
+</html>

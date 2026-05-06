@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Dowsing Machine</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #b0c4de;
+            font-family: monospace;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #grid {
+            width: 320px;
+            height: 240px;
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+        .ping {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid #333;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        @keyframes expand {
+            0% { width: 0; height: 0; opacity: 1; }
+            100% { width: var(--max-size); height: var(--max-size); opacity: 0; }
+        }
+        #center-dot {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #333;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        #hint {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #333;
+            pointer-events: none;
+            background: rgba(255,255,255,0.7);
+            padding: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="grid"></div>
+    <div id="center-dot"></div>
+    <div id="hint">Tap to search. Tap center to reset.</div>
+
+    <script>
+        var grid = document.getElementById('grid');
+        var targetX, targetY;
+
+        function setTarget() {
+            targetX = Math.floor(Math.random() * 280) + 20;
+            targetY = Math.floor(Math.random() * 200) + 20;
+        }
+        setTarget();
+
+        function createPing(x, y, maxRadius, duration) {
+            var ping = document.createElement('div');
+            ping.className = 'ping';
+            ping.style.left = x + 'px';
+            ping.style.top = y + 'px';
+            ping.style.setProperty('--max-size', maxRadius + 'px');
+            ping.style.animation = 'expand ' + duration + 's ease-out forwards';
+            document.body.appendChild(ping);
+            
+            setTimeout(function() {
+                if(ping.parentNode) ping.parentNode.removeChild(ping);
+            }, duration * 1000);
+        }
+
+        function handleTap(e) {
+            e.preventDefault();
+            var rect = grid.getBoundingClientRect();
+            var x, y;
+            if (e.touches) {
+                x = e.touches[0].clientX - rect.left;
+                y = e.touches[0].clientY - rect.top;
+            } else {
+                x = e.clientX - rect.left;
+                y = e.clientY - rect.top;
+            }
+
+            // Check if center tapped (to reset)
+            if (Math.abs(x - 160) < 20 && Math.abs(y - 120) < 20 && e.type === 'mousedown') {
+                setTarget();
+                createPing(160, 120, 100, 0.5); // Visual feedback for reset
+                return;
+            }
+            if (e.type === 'touchstart') {
+                // For touch, prevent duplicate mousedown events on center
+                if (Math.abs(x - 160) < 20 && Math.abs(y - 120) < 20) {
+                    setTarget();
+                    createPing(160, 120, 100, 0.5);
+                    return;
+                }
+            }
+
+            var dx = x - targetX;
+            var dy = y - targetY;
+            var distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Create visual feedback based on distance
+            if (distance < 30) {
+                // Found it!
+                createPing(targetX, targetY, 40, 0.5);
+                setTimeout(function(){ createPing(targetX, targetY, 60, 0.5); }, 200);
+                setTimeout(function(){ createPing(targetX, targetY, 80, 0.5); }, 400);
+                setTimeout(setTarget, 2000); // Reset after 2 seconds
+            } else {
+                // Regular ping
+                var intensity = Math.max(1, 5 - Math.floor(distance / 50));
+                for(var i=0; i<intensity; i++) {
+                    setTimeout((function(x, y){
+                        return function() { createPing(x, y, 60, 1.0); }
+                    })(x, y), i * 300);
+                }
+            }
+        }
+
+        grid.addEventListener('touchstart', handleTap);
+        grid.addEventListener('mousedown', handleTap);
+    </script>
+</body>
+</html>

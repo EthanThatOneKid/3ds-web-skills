@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Calendar</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f0f0f0;
+            font-family: sans-serif;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #header {
+            background: #ff5252;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #header button {
+            background: none;
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background: #e0e0e0;
+            padding: 5px 0;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+        }
+        #grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-auto-rows: minmax(30px, 1fr);
+            background: #fff;
+        }
+        .cell {
+            border-right: 1px solid #eee;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .cell.empty { background: #f9f9f9; }
+        .cell.today {
+            background: #ff5252;
+            color: #fff;
+            font-weight: bold;
+            border-radius: 50%;
+            margin: 2px;
+        }
+        .cell.selected {
+            background: #2196f3;
+            color: #fff;
+            margin: 2px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <button id="prev">&lt;</button>
+        <span id="month-year"></span>
+        <button id="next">&gt;</button>
+    </div>
+    <div id="days">
+        <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+    </div>
+    <div id="grid"></div>
+
+    <script>
+        var grid = document.getElementById('grid');
+        var monthYear = document.getElementById('month-year');
+        var prevBtn = document.getElementById('prev');
+        var nextBtn = document.getElementById('next');
+
+        var currentDate = new Date();
+        var selectedDate = null;
+
+        function renderCalendar() {
+            grid.innerHTML = '';
+            var year = currentDate.getFullYear();
+            var month = currentDate.getMonth();
+            
+            var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            monthYear.textContent = monthNames[month] + " " + year;
+
+            var firstDay = new Date(year, month, 1).getDay();
+            var daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            var today = new Date();
+
+            // Empty cells
+            for (var i = 0; i < firstDay; i++) {
+                var cell = document.createElement('div');
+                cell.className = 'cell empty';
+                grid.appendChild(cell);
+            }
+
+            // Day cells
+            for (var d = 1; d <= daysInMonth; d++) {
+                var cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.textContent = d;
+                
+                if (year === today.getFullYear() && month === today.getMonth() && d === today.getDate()) {
+                    cell.classList.add('today');
+                }
+
+                if (selectedDate && selectedDate.year === year && selectedDate.month === month && selectedDate.day === d) {
+                    cell.classList.add('selected');
+                }
+
+                cell.onclick = (function(day) {
+                    return function() {
+                        selectedDate = { year: year, month: month, day: day };
+                        renderCalendar();
+                    };
+                })(d);
+
+                grid.appendChild(cell);
+            }
+        }
+
+        prevBtn.onclick = function() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        };
+
+        nextBtn.onclick = function() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        };
+
+        renderCalendar();
+    </script>
+</body>
+</html>

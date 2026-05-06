@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3DS Tally Counter</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #e0e0e0;
+            font-family: monospace;
+            width: 100%; max-width: 320px; margin: 0 auto;
+            height: 240px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #display {
+            font-size: 72px;
+            font-weight: bold;
+            background: #fff;
+            border: 4px solid #333;
+            border-radius: 8px;
+            padding: 10px 20px;
+            min-width: 200px;
+            text-align: right;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+        button {
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #999;
+            font-family: inherit;
+            font-weight: bold;
+        }
+        button:active {
+            box-shadow: 0 0 0 #999;
+            transform: translateY(4px);
+        }
+        #btn-count {
+            width: 80px;
+            height: 80px;
+            background: #4caf50;
+            color: white;
+            font-size: 24px;
+        }
+        #btn-reset {
+            width: 60px;
+            height: 60px;
+            background: #f44336;
+            color: white;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="display">0</div>
+    <div class="controls">
+        <button id="btn-count">+</button>
+        <button id="btn-reset">RST</button>
+    </div>
+
+    <script>
+        var display = document.getElementById('display');
+        var btnCount = document.getElementById('btn-count');
+        var btnReset = document.getElementById('btn-reset');
+        
+        var count = 0;
+
+        function updateDisplay() {
+            display.textContent = count;
+        }
+
+        btnCount.addEventListener('touchstart', function(e) { e.preventDefault(); count++; updateDisplay(); });
+        btnCount.addEventListener('mousedown', function(e) { count++; updateDisplay(); });
+
+        btnReset.addEventListener('touchstart', function(e) { e.preventDefault(); count = 0; updateDisplay(); });
+        btnReset.addEventListener('mousedown', function(e) { count = 0; updateDisplay(); });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13 || e.keyCode === 38 || e.keyCode === 39) { // A, Up, Right
+                e.preventDefault();
+                count++;
+                updateDisplay();
+            } else if (e.keyCode === 40 || e.keyCode === 37) { // Down, Left
+                e.preventDefault();
+                count = 0;
+                updateDisplay();
+            }
+        });
+    </script>
+</body>
+</html>
