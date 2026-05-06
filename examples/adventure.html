@@ -13,14 +13,14 @@
             background: #5ccffa; /* Sky Blue */
             color: #333; 
             font-family: sans-serif;
-            width: 400px; /* Top screen focus */
+            width: 100%; max-width: 320px; margin: 0 auto; /* Top screen focus */
             height: 240px;
             overflow: hidden;
         }
 
         #top-screen {
             height: 240px;
-            width: 400px;
+            width: 100%; max-width: 320px; margin: 0 auto;
             padding: 15px;
             background: #5ccffa;
             overflow-y: auto;
@@ -40,7 +40,7 @@
         }
 
         /* Combined View for Desktop/Simulator */
-        #content-wrapper { height: 480px; width: 400px; overflow: hidden; position: relative; }
+        #content-wrapper { height: 480px; width: 100%; max-width: 320px; margin: 0 auto; overflow: hidden; position: relative; }
         #top-screen { position: relative; height: 50%; }
         #bottom-screen { display: block; position: relative; height: 50%; width: 100%; border:0; border-top: 4px solid #f9ed32; }
 
@@ -65,6 +65,7 @@
 
         #inventory { font-size: 11px; margin-top: 10px; color: #666; font-style: italic; }
         #dialogue { border-left: 4px solid #f15a24; padding-left: 10px; margin-top: 10px; font-weight: bold; }
+            canvas, img { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>

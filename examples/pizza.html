@@ -8,7 +8,7 @@
         * { box-sizing: border-box; }
         body {
             margin: 0; background: #000; color: #fff;
-            font-family: sans-serif; width: 400px; height: 240px; overflow: hidden;
+            font-family: sans-serif; width: 100%; max-width: 320px; margin: 0 auto; height: 240px; overflow: hidden;
         }
         #canvas { display: block; background: #1a1a1a; margin: 0 auto; }
         #subtitles {
@@ -21,6 +21,7 @@
             color: #ccc; text-align: center; padding: 4px; background: #222;
         }
         .accent { color: #00a2ff; font-weight: bold; }
+            canvas, img { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>
