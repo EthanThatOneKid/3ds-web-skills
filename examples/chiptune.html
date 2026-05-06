@@ -79,6 +79,7 @@
     </style>
 </head>
 <body>
+    <audio id="chiptune-player" controls loop autoplay style="width: 100%; margin-bottom: 10px;"></audio>
     <canvas id="visualizer" width="400" height="60"></canvas>
     <div id="info">CHIPTUNE PLAYER</div>
     <div id="status">NO AUDIO</div>
@@ -137,44 +138,108 @@
             visualBars.push(Math.random() * 40);
         }
 
+        var uriCache = {};
+        var fallbackAudio = null;
+
+        function generateTrackWavURI(track, numLoops, volume) {
+            var sampleRate = 22050; // Lower sample rate to save RAM for base64 string on 3DS
+            var noteDuration = 60 / track.tempo;
+            var totalNotes = track.notes.length * numLoops;
+            var numSamples = Math.floor(sampleRate * noteDuration * totalNotes);
+            var bufferLength = 44 + numSamples * 2;
+            var buffer = new ArrayBuffer(bufferLength);
+            var view = new DataView(buffer);
+
+            view.setUint32(0, 0x52494646, false);
+            view.setUint32(4, 36 + numSamples * 2, true);
+            view.setUint32(8, 0x57415645, false);
+            view.setUint32(12, 0x666d7420, false);
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            view.setUint32(36, 0x64617461, false);
+            view.setUint32(40, numSamples * 2, true);
+
+            var samplesPerNote = Math.floor(sampleRate * noteDuration);
+
+            for (var loop = 0; loop < numLoops; loop++) {
+                for (var n = 0; n < track.notes.length; n++) {
+                    var freq = track.notes[n];
+                    var offset = (loop * track.notes.length + n) * samplesPerNote;
+                    
+                    for (var i = 0; i < samplesPerNote; i++) {
+                        var val = (Math.sin(2 * Math.PI * freq * (i / sampleRate)) >= 0) ? 1 : -1;
+                        var t = i / sampleRate;
+                        var decay = Math.exp(-t * 6.0);
+                        var sample = Math.floor(val * 32767 * volume * decay);
+                        
+                        if (44 + (offset + i) * 2 < bufferLength) {
+                            view.setInt16(44 + (offset + i) * 2, sample, true);
+                        }
+                    }
+                }
+            }
+
+            var bytes = new Uint8Array(buffer);
+            var binary = '';
+            for (var i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return 'data:audio/wav;base64,' + btoa(binary);
+        }
+
         function initAudio() {
             try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                gainNode = audioContext.createGain();
-                gainNode.connect(audioContext.destination);
-                gainNode.gain.value = volume;
-                audioSupported = true;
-                statusEl.innerHTML = 'READY';
-                statusEl.style.color = '#0f0';
+                if (window.AudioContext || window.webkitAudioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    gainNode = audioContext.createGain();
+                    gainNode.connect(audioContext.destination);
+                    gainNode.gain.value = volume;
+                    audioSupported = true;
+                    statusEl.innerHTML = 'READY';
+                    statusEl.style.color = '#0f0';
+                } else {
+                    audioSupported = true;
+                    statusEl.innerHTML = 'READY (WAV)';
+                    statusEl.style.color = '#0f0';
+                }
             } catch (e) {
-                audioSupported = false;
-                statusEl.innerHTML = 'NO AUDIO';
-                statusEl.style.color = '#f00';
+                audioSupported = true;
+                statusEl.innerHTML = 'READY (WAV)';
+                statusEl.style.color = '#0f0';
             }
         }
 
         function playNote(freq) {
-            if (!audioSupported || !audioContext) return;
+            if (!audioSupported) return;
 
-            try {
-                if (oscillator) {
-                    oscillator.stop();
-                    oscillator.disconnect();
-                }
-
-                oscillator = audioContext.createOscillator();
-                oscillator.type = 'square';
-                oscillator.frequency.value = freq;
-                oscillator.connect(gainNode);
-                oscillator.start();
-
-                // Short envelope
-                setTimeout(function() {
+            if (audioContext) {
+                try {
                     if (oscillator) {
                         oscillator.stop();
+                        oscillator.disconnect();
                     }
-                }, 100);
-            } catch (e) {}
+
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'square';
+                    oscillator.frequency.value = freq;
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+
+                    // Short envelope
+                    setTimeout(function() {
+                        if (oscillator) {
+                            oscillator.stop();
+                        }
+                    }, 100);
+                } catch (e) {}
+            } else {
+                // Fallback plays full tracks instead of individual notes due to async user-gesture restrictions
+            }
         }
 
         function playTrack() {
@@ -183,14 +248,41 @@
             var track = tracks[currentTrack];
             var interval = 60000 / track.tempo;
 
-            playNote(track.notes[0]);
             currentNoteIndex = 0;
+
+            if (audioContext) {
+                playNote(track.notes[0]);
+            } else {
+                try {
+                    if (!fallbackAudio) {
+                        fallbackAudio = document.getElementById('chiptune-player');
+                    }
+                    fallbackAudio.volume = volume;
+                    fallbackAudio.loop = true;
+                    if (!uriCache[currentTrack]) {
+                        uriCache[currentTrack] = generateTrackWavURI(track, 4, volume);
+                    }
+                    fallbackAudio.src = uriCache[currentTrack];
+                    var playPromise = fallbackAudio.play();
+                    if (playPromise !== undefined && playPromise.catch) {
+                        playPromise.catch(function(err) {
+                            statusEl.innerHTML = 'ERR: ' + err.message.substring(0, 15);
+                            statusEl.style.color = '#f00';
+                        });
+                    }
+                } catch (e) {
+                    statusEl.innerHTML = 'ERR: ' + e.message.substring(0, 15);
+                    statusEl.style.color = '#f00';
+                }
+            }
 
             if (noteInterval) clearInterval(noteInterval);
             noteInterval = setInterval(function() {
                 if (!isPlaying) return;
                 currentNoteIndex = (currentNoteIndex + 1) % track.notes.length;
-                playNote(track.notes[currentNoteIndex]);
+                if (audioContext) {
+                    playNote(track.notes[currentNoteIndex]);
+                }
             }, interval);
         }
 
@@ -198,6 +290,9 @@
             if (noteInterval) clearInterval(noteInterval);
             if (oscillator) {
                 try { oscillator.stop(); } catch (e) {}
+            }
+            if (!audioContext && fallbackAudio) {
+                fallbackAudio.pause();
             }
         }
 
@@ -238,6 +333,9 @@
             volLevel.innerHTML = Math.round(volume * 100);
             if (gainNode) {
                 gainNode.gain.value = volume;
+            }
+            if (fallbackAudio) {
+                fallbackAudio.volume = volume;
             }
         }
 
