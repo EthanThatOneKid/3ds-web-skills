@@ -80,96 +80,11 @@
     </div>
 
     <audio id="player" controls></audio>
-
     <script>
         var statusEl = document.getElementById('status');
         var player = document.getElementById('player');
-        var cache = {};
-
-        // Generate retro SFX using pure math and encode to WAV Data URI
-        function generateSFX(type) {
-            var sampleRate = 22050;
-            var duration = 0.5; // default half second
-            if (type === 'powerup' || type === 'oneup') duration = 0.8;
-            
-            var numSamples = Math.floor(sampleRate * duration);
-            var bufferLength = 44 + numSamples * 2;
-            var buffer = new ArrayBuffer(bufferLength);
-            var view = new DataView(buffer);
-
-            // Write WAV Header
-            view.setUint32(0, 0x52494646, false); // RIFF
-            view.setUint32(4, 36 + numSamples * 2, true);
-            view.setUint32(8, 0x57415645, false); // WAVE
-            view.setUint32(12, 0x666d7420, false); // fmt 
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true); // PCM
-            view.setUint16(22, 1, true); // Mono
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * 2, true);
-            view.setUint16(32, 2, true);
-            view.setUint16(34, 16, true); // 16-bit
-            view.setUint32(36, 0x64617461, false); // data
-            view.setUint32(40, numSamples * 2, true);
-
-            var volume = 0.5;
-
-            // Generate Samples
-            for (var i = 0; i < numSamples; i++) {
-                var t = i / sampleRate;
-                var freq = 440;
-                var val = 0;
-                var decay = 1;
-
-                if (type === 'coin') {
-                    freq = (t < 0.1) ? 987.77 : 1318.51; // B5 -> E6
-                    decay = Math.exp(-t * 10);
-                    val = Math.sin(2 * Math.PI * freq * t) > 0 ? 1 : -1;
-                } else if (type === 'jump') {
-                    freq = 300 + (t * 800); // Slide up
-                    decay = Math.exp(-t * 8);
-                    val = Math.sin(2 * Math.PI * freq * t) > 0 ? 1 : -1;
-                } else if (type === 'laser') {
-                    freq = 1200 - (t * 4000); // Slide down
-                    if (freq < 100) freq = 100;
-                    decay = Math.exp(-t * 15);
-                    // Add duty cycle variation
-                    var phase = (freq * t) % 1;
-                    val = phase > 0.3 ? 1 : -1;
-                } else if (type === 'powerup') {
-                    var steps = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
-                    var stepIdx = Math.floor((t / duration) * steps.length);
-                    if (stepIdx >= steps.length) stepIdx = steps.length - 1;
-                    freq = steps[stepIdx];
-                    decay = 1 - (t / duration);
-                    val = Math.sin(2 * Math.PI * freq * t) > 0 ? 1 : -1;
-                } else if (type === 'hit') {
-                    freq = 100 - (t * 100);
-                    if (freq < 10) freq = 10;
-                    decay = Math.exp(-t * 12);
-                    // Noise approximation using fast sine multiplication
-                    val = (Math.sin(2 * Math.PI * freq * t * 10) * Math.sin(2 * Math.PI * 400 * t)) > 0 ? 1 : -1;
-                } else if (type === 'oneup') {
-                    var oSteps = [1318.51, 1567.98, 2093.00, 1567.98, 2637.02, 3135.96]; // E6, G6, C7, G6, E7, G7
-                    var oStepIdx = Math.floor((t / duration) * oSteps.length);
-                    if (oStepIdx >= oSteps.length) oStepIdx = oSteps.length - 1;
-                    freq = oSteps[oStepIdx];
-                    decay = 1.0;
-                    if (t > duration - 0.2) decay = Math.exp(-(t - (duration - 0.2)) * 15);
-                    val = Math.sin(2 * Math.PI * freq * t) > 0 ? 1 : -1;
-                }
-
-                var sample = Math.floor(val * 32767 * volume * decay);
-                view.setInt16(44 + i * 2, sample, true);
-            }
-
-            var bytes = new Uint8Array(buffer);
-            var binary = '';
-            for (var b = 0; b < bytes.byteLength; b++) {
-                binary += String.fromCharCode(bytes[b]);
-            }
-            return 'data:audio/wav;base64,' + btoa(binary);
-        }
+        // Calculate the absolute base path to bypass 3DS cross-process relative path bugs
+        var basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
 
         var btns = document.querySelectorAll('.btn');
         for (var i = 0; i < btns.length; i++) {
@@ -193,13 +108,10 @@
             }, 150);
 
             try {
-                if (!cache[sfx]) {
-                    statusEl.innerHTML = 'SYNTHESIZING...';
-                    cache[sfx] = generateSFX(sfx);
-                }
-                
                 statusEl.innerHTML = 'PLAYING: ' + sfx.toUpperCase();
-                player.src = cache[sfx];
+                
+                // Force cache-busting timestamp on every tap
+                player.src = basePath + '/audio/' + sfx + '.mp3?t=' + Date.now();
                 
                 var p = player.play();
                 if (p && p.catch) {
