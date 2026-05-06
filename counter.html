@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <title>Counter</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:monospace;background:#7b9cba;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .screen{background:#c7ddea;border:12px solid #555;border-radius:8px;padding:20px 60px;margin-bottom:40px}
+    .count{font-size:6em;font-weight:700;color:#1a2e38;text-align:right;letter-spacing:6px}
+    .btn{font-size:6em;width:200px;height:200px;background:#e94f4f;color:#fff;border:12px solid #a33;border-radius:16px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+    .btn:active{transform:scale(.95);background:#c33}
+    .btn:active{-webkit-transform:scale(.95)}
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <div class="count" id="c">0000</div>
+  </div>
+  <button class="btn" ontouchend="s(event)" onclick="i()">+</button>
+  <script>
+    function g() {var s=document.cookie.match(/c=([^;]+)/);return s?s[1]*1:0}
+    function s(n) {document.cookie="c="+n+";path=/;max-age=31536000"}
+    function u() {document.getElementById("c").innerHTML=String(g()).padStart(4,"0")}
+    function i() {var n=g()+1;s(n);u()}
+    function h(e) {e.preventDefault()}
+    function t(e) {h(e);i()}
+    u();
+  </script>
+</body>
+</html>
