@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <title>Counter SSR</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:monospace;background:#1a1a2e;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .count{font-size:8em;font-weight:700;color:#e94560}
+    .label{font-size:2em;margin-bottom:40px;color:#888}
+    .btn{font-family:monospace;font-size:2.5em;padding:20px 60px;background:#e94560;color:#fff;border:none;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .btn:active{background:#c73659;transform:scale(0.97)}
+    .note{font-size:1.2em;color:#666;margin-top:40px;text-align:center;padding:0 20px}
+  </style>
+</head>
+<body>
+  <div class="label">COUNTER</div>
+  <div class="count">0</div>
+  <form method="POST" action="/api/counter-ssr/increment">
+    <button type="submit" class="btn">INCREMENT</button>
+  </form>
+  <div class="note">Full page reload on each click.<br>Count embedded server-side in HTML.</div>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <title>Discord Webhook</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:monospace;background:#101419;color:#ecf2ff;min-height:100vh;padding:10px;line-height:1.35}
+    .shell{max-width:320px;margin:0 auto}
+    .title{font-size:18px;letter-spacing:1px;text-transform:uppercase;color:#7ab7ff;margin:4px 0 6px}
+    .subtitle{font-size:11px;color:#9aa7bd;margin-bottom:10px}
+    .panel{background:#171c25;border:1px solid #2b3444;border-radius:8px;padding:10px;margin-bottom:10px}
+    .label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#91a0b8;margin:8px 0 4px}
+    .input,.textarea{width:100%;font-family:monospace;font-size:12px;color:#ecf2ff;background:#0f131a;border:1px solid #303b4f;border-radius:6px;padding:8px;-webkit-tap-highlight-color:transparent}
+    .textarea{height:88px;resize:none}
+    .input:focus,.textarea:focus{outline:none;border-color:#7ab7ff}
+    .button{width:100%;margin-top:10px;font-family:monospace;font-size:14px;font-weight:700;letter-spacing:.5px;padding:12px 10px;border:none;border-radius:6px;background:#7ab7ff;color:#08111d;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .button:active{transform:scale(.98);background:#5ea2fa}
+    .button:disabled{background:#5a6475;color:#ced7e6;cursor:not-allowed;transform:none}
+    .status{margin-top:8px;font-size:11px;color:#b6c4da;min-height:30px}
+    .status.ok{color:#86f2a0}
+    .status.bad{color:#ff8d8d}
+    .note{font-size:10px;color:#8b97aa;margin-top:8px}
+    .preview-title{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#91a0b8;margin-bottom:6px}
+    .preview{white-space:pre-wrap;word-wrap:break-word;font-size:11px;color:#dbe6f8;background:#0f131a;border:1px solid #303b4f;border-radius:6px;padding:8px;min-height:70px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="title">Discord Webhook</div>
+    <div class="subtitle">Type a message on the 3DS and submit it to the local Hono relay at <span style="white-space:nowrap">/api/discord-webhook</span>.</div>
+
+    <div class="panel">
+      <form id="f">
+        <label class="label" for="m">Message</label>
+        <textarea id="m" class="textarea">Hello from the Nintendo 3DS browser.</textarea>
+
+        <button id="send" class="button" type="submit">SEND</button>
+      </form>
+
+      <div id="status" class="status">Idle.</div>
+      <div class="note">The relay forwards the message to Discord using your server-side webhook URL.</div>
+    </div>
+
+    <div class="panel">
+      <div class="preview-title">Payload preview</div>
+      <div id="preview" class="preview"></div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var sending = false;
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function setText(id, value) {
+      var node = $(id);
+      while (node.firstChild) node.removeChild(node.firstChild);
+      node.appendChild(document.createTextNode(value));
+    }
+
+    function trim(value) {
+      return String(value).replace(/^\s+|\s+$/g, "");
+    }
+
+    function buildPayload() {
+      var content = trim($("m").value);
+      return JSON.stringify({
+        content: content
+      });
+    }
+
+    function renderPreview() {
+      setText("preview", buildPayload());
+    }
+
+    function setStatus(message, kind) {
+      var node = $("status");
+      node.className = "status" + (kind ? " " + kind : "");
+      setText("status", message);
+    }
+
+    function send(event) {
+      var button = $("send");
+      var content = trim($("m").value);
+      var xhr;
+
+      if (event && event.preventDefault) event.preventDefault();
+      if (sending) return false;
+
+      if (!content) {
+        setStatus("Message cannot be empty.", "bad");
+        return false;
+      }
+
+      sending = true;
+      button.disabled = true;
+      setStatus("Sending...");
+
+      xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/discord-webhook", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+
+        sending = false;
+        button.disabled = false;
+
+        if (xhr.status === 204 || (xhr.status >= 200 && xhr.status < 300)) {
+          setStatus("Sent successfully. HTTP " + xhr.status + ".", "ok");
+          return;
+        }
+
+        if (xhr.status === 0) {
+          setStatus("Request failed or was blocked.", "bad");
+          return;
+        }
+
+        setStatus("Request failed. HTTP " + xhr.status + ".", "bad");
+      };
+      xhr.onerror = function () {
+        sending = false;
+        button.disabled = false;
+        setStatus("Network error while sending.", "bad");
+      };
+
+      xhr.send(buildPayload());
+      return false;
+    }
+
+    function init() {
+      $("f").onsubmit = send;
+      $("m").oninput = renderPreview;
+      renderPreview();
+    }
+
+    if (document.addEventListener) {
+      document.addEventListener("DOMContentLoaded", init, false);
+    } else {
+      window.onload = init;
+    }
+  })();
+  </script>
+</body>
+</html>

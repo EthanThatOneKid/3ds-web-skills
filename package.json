@@ -8,6 +8,8 @@
     "start": "node scripts/dev.js"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.2",
+    "hono": "^4.12.18",
     "qrcode-terminal": "^0.12.0",
     "sirv": "^3.0.0",
     "tunnelmole": "^2.4.0"

@@ -21,6 +21,9 @@ Web development skills for the Nintendo 3DS browser.
 | [stopwatch.html](./examples/stopwatch.html) | Utility | Timer with Pomodoro support |
 | [touch-draw.html](./examples/touch-draw.html) | Utility | Canvas drawing with cookie persistence |
 | [todo.html](./examples/todo.html) | Utility | Todo list with cookie storage |
+| [discord/webhook/](./examples/discord/webhook/) | Utility | 3DS message composer that posts to a Hono Discord relay |
+| [spa-counter/](./examples/spa-counter/) | Utility | Client-side counter with cookie persistence |
+| [ssr-counter/](./examples/ssr-counter/) | Utility | Form-backed counter demo with server-rendered HTML |
 | [debug.html](./examples/debug.html) | Demo | Input tester for D-Pad/A button |
 | [adventure.html](./examples/adventure.html) | Demo | Text adventure with inventory |
 | [pizza.html](./examples/pizza.html) | Demo | Interactive cartoon with dialog |
@@ -53,6 +56,8 @@ This repository includes an interactive developer tool that starts a local serve
    # or: npm run dev
    ```
 4. Scan the QR code generated in your terminal with your 3DS (press L/R on home screen) — changes are live as you code!
+
+The Discord webhook demo keeps the 3DS form in `examples/discord/webhook/index.html` and the Hono relay wrapper in `examples/discord/webhook/index.js`. Set `DISCORD_WEBHOOK_URL` in whatever Hono runtime you wire that handler into.
 
 #### Custom local tunnel manual setup
 If you prefer to configure your own tunneling service manually:
